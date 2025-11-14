@@ -36,14 +36,20 @@ class LoginPageState extends State<LoginPage> {
                   width: 300,
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.only(top: 1, bottom: 20),
-                child: Text(
-                  "GRINDSTONE",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.barlow(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 37,
+              Transform.translate(
+                offset: Offset(0, -40),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    top: 5,
+                    bottom: 0,
+                  ),
+                  child: Text(
+                    "GRINDSTONE",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.barlow(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 37,
+                    ),
                   ),
                 ),
               ),
