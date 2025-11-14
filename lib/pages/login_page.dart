@@ -37,13 +37,13 @@ class LoginPageState extends State<LoginPage> {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.only(top: 5, bottom: 20),
+                padding: EdgeInsets.only(top: 1, bottom: 20),
                 child: Text(
-                  "G R I N D S T O N E",
+                  "GRINDSTONE",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.barlow(
                     fontWeight: FontWeight.bold,
-                    fontSize: 30,
+                    fontSize: 37,
                   ),
                 ),
               ),
@@ -54,28 +54,6 @@ class LoginPageState extends State<LoginPage> {
                   controller: emailController,
                   obscure: false,
                 ),
-                // child: Container(
-                //   width: 288,
-                //   height: 56,
-                //   decoration: BoxDecoration(
-                //     color: buttonInnerColor,
-                //     border: Border.all(
-                //       color: buttonOutlineBorderColor,
-                //       width: 2,
-                //     ),
-                //     borderRadius: BorderRadius.circular(8),
-                //   ),
-                //   child: TextField(
-                //     controller: emailController,
-                //     decoration: InputDecoration(
-                //       labelText: 'Почта',
-                //       helperStyle: GoogleFonts.barlow(
-                //         fontWeight: FontWeight.bold,
-                //         fontSize: 15,
-                //       ),
-                //     ),
-                //   ),
-                // ),
               ),
               Padding(
                 padding: EdgeInsets.only(top: 20, bottom: 30),
@@ -84,41 +62,18 @@ class LoginPageState extends State<LoginPage> {
                   controller: passwordController,
                   obscure: true,
                 ),
-                // child: Container(
-                //   width: 288,
-                //   height: 56,
-                //   decoration: BoxDecoration(
-                //     color: buttonInnerColor,
-                //     border: Border.all(
-                //       color: buttonOutlineBorderColor,
-                //       width: 2,
-                //     ),
-                //     borderRadius: BorderRadius.circular(8),
-                //   ),
-                //   child: TextField(
-                //     controller: passwordController,
-                //     decoration: InputDecoration(
-                //       labelText: 'Пароль',
-                //       helperStyle: GoogleFonts.barlow(
-                //         fontWeight: FontWeight.bold,
-                //         fontSize: 15,
-                //       ),
-                //     ),
-                //     obscureText: true,
-                //   ),
-                // ),
               ),
               ElevatedButton(
                 onPressed: () => UnimplementedError,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: loginButtonBackgroundColor,
                   foregroundColor: loginButtonForegroundColor,
-                  fixedSize: Size(290, 60),
+                  fixedSize: Size(185, 60),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
-                child: LoginPageButtonText(text: 'Войти'),
+                child: LoginPageButtonText(text: 'ВОЙТИ'),
               ),
             ],
           ),

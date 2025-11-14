@@ -9,7 +9,7 @@ class LoginPageButtonText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: GoogleFonts.barlow(fontSize: 20, fontWeight: FontWeight.bold),
+      style: GoogleFonts.barlow(fontSize: 22, fontWeight: FontWeight.bold),
       textAlign: TextAlign.center,
     );
   }
