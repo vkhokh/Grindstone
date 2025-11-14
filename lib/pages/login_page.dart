@@ -1,3 +1,4 @@
+import 'package:dp/buttons.dart';
 import 'package:dp/textfields.dart';
 import 'package:dp/colors.dart';
 import 'package:flutter/material.dart';
@@ -77,7 +78,7 @@ class LoginPageState extends State<LoginPage> {
                 // ),
               ),
               Padding(
-                padding: EdgeInsets.only(top: 20, bottom: 20),
+                padding: EdgeInsets.only(top: 20, bottom: 30),
                 child: LoginPageText(
                   text: 'Пароль',
                   controller: passwordController,
@@ -106,6 +107,18 @@ class LoginPageState extends State<LoginPage> {
                 //     obscureText: true,
                 //   ),
                 // ),
+              ),
+              ElevatedButton(
+                onPressed: () => UnimplementedError,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: loginButtonBackgroundColor,
+                  foregroundColor: loginButtonForegroundColor,
+                  fixedSize: Size(290, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: LoginPageButtonText(text: 'Войти'),
               ),
             ],
           ),
