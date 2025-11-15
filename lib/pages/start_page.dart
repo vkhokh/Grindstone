@@ -24,12 +24,12 @@ class StartPageState extends State<StartPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: _opacity,
-      duration: const Duration(milliseconds: 1000),
-      child: Scaffold(
-        backgroundColor: backGroundColor,
-        body: Padding(
+    return Scaffold(
+      backgroundColor: backGroundColor,
+      body: AnimatedOpacity(
+        opacity: _opacity,
+        duration: const Duration(milliseconds: 1000),
+        child: Padding(
           padding: EdgeInsetsGeometry.symmetric(horizontal: 50, vertical: 10),
           child: Image.asset(
             'assets/images/logo.png',
@@ -37,14 +37,14 @@ class StartPageState extends State<StartPage> {
             fit: BoxFit.contain,
           ),
         ),
+        onEnd: () {
+          if (_opacity == 0.0) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+            );
+          }
+        },
       ),
-      onEnd: () {
-        if (_opacity == 0.0) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const LoginPage()),
-          );
-        }
-      },
     );
   }
 }

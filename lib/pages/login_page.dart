@@ -1,8 +1,4 @@
-import 'package:dp/buttons.dart';
-import 'package:dp/textfields.dart';
-import 'package:dp/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,7 +16,6 @@ class LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backGroundColor,
       body: Padding(
         padding: EdgeInsets.only(left: 30.0, right: 30.0),
         child: SizedBox.expand(
@@ -39,47 +34,41 @@ class LoginPageState extends State<LoginPage> {
               Transform.translate(
                 offset: Offset(0, -40),
                 child: Padding(
-                  padding: EdgeInsets.only(
-                    top: 5,
-                    bottom: 0,
-                  ),
+                  padding: EdgeInsets.only(top: 5, bottom: 0),
                   child: Text(
                     "GRINDSTONE",
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.barlow(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 37,
-                    ),
+                    style: Theme.of(context).textTheme.displayLarge,
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: EdgeInsets.only(top: 30, bottom: 20),
+                child: SizedBox(
+                  width: 288,
+                  height: 56,
+                  child: TextField(
+                    decoration: InputDecoration(hintText: 'Почта'),
+                    controller: emailController,
                   ),
                 ),
               ),
               Padding(
-                padding: EdgeInsets.only(top: 30, bottom: 20),
-                child: LoginPageText(
-                  text: 'Почта',
-                  controller: emailController,
-                  obscure: false,
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(top: 20, bottom: 30),
-                child: LoginPageText(
-                  text: 'Пароль',
-                  controller: passwordController,
-                  obscure: true,
+                padding: EdgeInsets.only(top: 20, bottom: 20),
+                child: SizedBox(
+                  width: 288,
+                  height: 56,
+                  child: TextField(
+                    decoration: InputDecoration(hintText: 'Логин'),
+                    controller: passwordController,
+                  ),
                 ),
               ),
               ElevatedButton(
                 onPressed: () => UnimplementedError,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: loginButtonBackgroundColor,
-                  foregroundColor: loginButtonForegroundColor,
-                  fixedSize: Size(185, 60),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                child: LoginPageButtonText(text: 'ВОЙТИ'),
+                style: ElevatedButton.styleFrom(fixedSize: Size(185, 60)),
+                child: Text('ВОЙТИ'),
               ),
             ],
           ),
