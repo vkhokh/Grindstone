@@ -1,6 +1,7 @@
 import 'package:dp/pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:dp/colors.dart';
+import 'package:dp/pages/create_workout_page.dart';
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -40,7 +41,7 @@ class StartPageState extends State<StartPage> {
         onEnd: () {
           if (_opacity == 0.0) {
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const LoginPage()),
+              MaterialPageRoute(builder: (context) => const CreateWorkoutPage()),
             );
           }
         },
