@@ -26,7 +26,11 @@ class _AddSetPageState extends State<AddSetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Добавить подход')),
+       appBar: AppBar(
+        title: const Text('Добавить подход'),
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(

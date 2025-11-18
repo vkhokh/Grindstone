@@ -22,7 +22,11 @@ class _AddExercisePageState extends State<AddExercisePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Добавить упражнение')),
+       appBar: AppBar(
+        title: const Text('Добавить упражнение'),
+        backgroundColor: Colors.transparent, 
+        elevation: 0, 
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(

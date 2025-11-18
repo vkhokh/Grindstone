@@ -14,13 +14,21 @@ class CurrentWorkoutPage extends StatelessWidget {
 
     if (currentWorkout == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Текущая тренировка')),
+        appBar: AppBar(
+          title: const Text('Текущая тренировка'),
+          backgroundColor: Colors.transparent, 
+          elevation: 0, 
+        ),
         body: const Center(child: Text('Нет активной тренировки')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(currentWorkout.name)),
+      appBar: AppBar(
+        title: Text(currentWorkout.name),
+        backgroundColor: Colors.transparent, 
+        elevation: 0, 
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

@@ -22,7 +22,11 @@ class _CreateWorkoutPageState extends State<CreateWorkoutPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Создать тренировку')),
+      appBar: AppBar(
+        title: const Text('Создать тренировку'),
+        backgroundColor: Colors.transparent, 
+        elevation: 0, 
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
