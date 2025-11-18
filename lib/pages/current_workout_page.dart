@@ -56,21 +56,41 @@ class CurrentWorkoutPage extends StatelessWidget {
             ),
             const Divider(),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/add_exercise');
-                  },
-                  child: const Text('Добавить упражнение'),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/add_exercise');
+                      },
+                      child: const Text('Добавить упражнение'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: Size(double.infinity, 50), // Устанавливаем минимальную высоту 50
+                        // Если вы хотите установить точную высоту, можно использовать fixedSize:
+                        // fixedSize: Size(double.infinity, 50), // Это зафиксирует и ширину (равной доступной), и высоту.
+                      ),
+                    ),
+                  ),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Тренировка сохранена!')),
-                    );
-                  },
-                  child: const Text('Завершить'),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Здесь можно добавить логику завершения тренировки
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Тренировка сохранена!')),
+                        );
+                      },
+                      child: const Text('Завершить'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: Size(double.infinity, 50), // Устанавливаем минимальную высоту 50
+                        // fixedSize: Size(double.infinity, 50), // То же самое, если хотите точный размер
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
