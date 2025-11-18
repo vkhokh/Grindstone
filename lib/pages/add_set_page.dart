@@ -24,51 +24,69 @@ class _AddSetPageState extends State<AddSetPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-       appBar: AppBar(
-        title: const Text('Добавить подход'),
-        backgroundColor: Colors.transparent, 
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _weightController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Вес (кг)',
-                border: OutlineInputBorder(),
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+    ),
+    body: Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Добавить подход',
+                style: Theme.of(context).elevatedButtonTheme.style?.textStyle?.resolve({}),
               ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _repsController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Повторения',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                final weight = double.tryParse(_weightController.text) ?? 0.0;
-                final reps = int.tryParse(_repsController.text) ?? 0;
-
-                if (weight > 0 && reps > 0) {
-                  Provider.of<WorkoutProvider>(context, listen: false)
-                      .addSetToExercise(widget.exerciseIndex, weight, reps);
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('СОХРАНИТЬ'),
-            ),
-          ],
+              const Divider(height: 20),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _weightController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Вес (кг)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _repsController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Повторения',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    final weight = double.tryParse(_weightController.text) ?? 0.0;
+                    final reps = int.tryParse(_repsController.text) ?? 0;
+
+                    if (weight > 0 && reps > 0) {
+                      Provider.of<WorkoutProvider>(context, listen: false)
+                          .addSetToExercise(widget.exerciseIndex, weight, reps);
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('СОХРАНИТЬ'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 }

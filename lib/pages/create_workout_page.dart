@@ -23,41 +23,52 @@ class _CreateWorkoutPageState extends State<CreateWorkoutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Создать тренировку'),
-        backgroundColor: Colors.transparent, 
-        elevation: 0, 
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'Название тренировки',
-                border: OutlineInputBorder(),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Создать тренировку',
+                  style: Theme.of(context).elevatedButtonTheme.style?.textStyle?.resolve({}),
+                ),
+                const Divider(height: 20),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Название тренировки',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_nameController.text.isNotEmpty) {
+                        Provider.of<WorkoutProvider>(context, listen: false)
+                            .createWorkout(_nameController.text);
+                        Navigator.pushReplacementNamed(context, '/current_workout');
+                      }
+                    },
+                    child: const Text('СОЗДАТЬ'),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                if (_nameController.text.isNotEmpty) {
-                  Provider.of<WorkoutProvider>(context, listen: false)
-                      .createWorkout(_nameController.text);
-                  Navigator.pushReplacementNamed(context, '/current_workout');
-                }
-              },
-              child: const Text('СОХРАНИТЬ'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushReplacementNamed(context, '/current_workout');
-              },
-              child: const Text('Добавить упражнение'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
