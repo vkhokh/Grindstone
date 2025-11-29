@@ -99,7 +99,7 @@ class TrainingScreenState extends State<TrainingScreen> {
                       fixedSize: const Size(185, 60),
                       backgroundColor: Colors.amber,
                       foregroundColor: Colors.black,
-                      shadowColor: Colors.black.withOpacity(0.3),
+                      shadowColor: Colors.black.withValues(alpha: 2),
                       elevation: 5,),
                     child: const Text(
                       'Сохранить',
@@ -192,7 +192,7 @@ class TrainingScreenState extends State<TrainingScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber,
                       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      shadowColor: Colors.black.withOpacity(0.3),
+                      shadowColor: Colors.black.withValues(alpha: 2),
                       elevation: 5,
                       minimumSize: Size(100, 45), // Same size for both buttons
                     ),
@@ -210,7 +210,7 @@ class TrainingScreenState extends State<TrainingScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber,
                       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      shadowColor: Colors.black.withOpacity(0.3),
+                      shadowColor: Colors.black.withValues(alpha: 2),
                       elevation: 5,
                       minimumSize: Size(100, 45), // Same size for both buttons
                     ),
