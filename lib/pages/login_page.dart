@@ -1,4 +1,5 @@
 import 'package:dp/pages/current_training_page.dart';
+import 'package:dp/pages/main_page.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -68,8 +69,10 @@ class LoginPageState extends State<LoginPage> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder:(context) => const CurrentWorkoutScreen(),
-                  ));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MainPage()),
+                  );
                 },
                 style: ElevatedButton.styleFrom(fixedSize: Size(185, 60)),
                 child: Text('ВОЙТИ'),
