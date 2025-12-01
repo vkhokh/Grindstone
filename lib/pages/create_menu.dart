@@ -1,5 +1,10 @@
+import 'package:dp/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+
+// Импортируем ваши цвета и тему
+import 'package:dp/colors.dart';
+import 'package:google_fonts/google_fonts.dart'; // Убедитесь, что путь правильный
 
 void main() {
   runApp(MyApp());
@@ -11,6 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: mainTheme, // Применяем вашу тему ко всему приложению
       home: TrainingScreen(),
     );
   }
@@ -24,11 +30,36 @@ class TrainingScreen extends StatefulWidget {
 }
 
 class TrainingScreenState extends State<TrainingScreen> {
-  final TextEditingController _controller = TextEditingController();
+  final TextEditingController _exerciseController = TextEditingController();
+  final TextEditingController _trainingNameController = TextEditingController();
+  final FocusNode _trainingNameFocusNode = FocusNode(); // Новый FocusNode
+
   List<String> exercises = [];
 
+  // Состояние для отслеживания, редактируется ли поле
+  bool _isTrainingNameFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Слушаем изменения фокуса
+    _trainingNameFocusNode.addListener(() {
+      setState(() {
+        _isTrainingNameFocused = _trainingNameFocusNode.hasFocus;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _exerciseController.dispose();
+    _trainingNameController.dispose();
+    _trainingNameFocusNode.dispose();
+    super.dispose();
+  }
+
   void _openExerciseDialog([String? initialName]) {
-    _controller.text = initialName ?? "";
+    _exerciseController.text = initialName ?? "";
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -36,18 +67,18 @@ class TrainingScreenState extends State<TrainingScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0),
           ),
-          backgroundColor: Color(0xFFEBE3D0), // Background color
+          backgroundColor: Color(0xFFEBE3D0), // Background color (как было изначально)
           child: Container(
             width: 300,
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 30, bottom: 20),
+                Padding(
+                  padding: const EdgeInsets.only(top: 30, bottom: 20),
                   child: Text(
                     "Выберите упражнение",
-                    style: TextStyle(
+                    style: TextStyle( // Оставляем как было
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
@@ -62,8 +93,8 @@ class TrainingScreenState extends State<TrainingScreen> {
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Название упражнения',
-                        hintStyle: TextStyle(color: Colors.grey),
-                        filled: false,
+                        hintStyle: TextStyle(color: Colors.grey), // Как было
+                        filled: false, // Как было (без заливки)
                         border: const UnderlineInputBorder(
                           borderSide: BorderSide(color: Colors.black, width: 2.0),
                         ),
@@ -74,7 +105,7 @@ class TrainingScreenState extends State<TrainingScreen> {
                           borderSide: BorderSide(color: Colors.black, width: 2.0),
                         ),
                       ),
-                      controller: _controller,
+                      controller: _exerciseController,
                     ),
                   ),
                 ),
@@ -82,14 +113,14 @@ class TrainingScreenState extends State<TrainingScreen> {
                   padding: const EdgeInsets.only(top: 10, bottom: 10),
                   child: ElevatedButton(
                     onPressed: () {
-                      String exerciseName = _controller.text;
+                      String exerciseName = _exerciseController.text;
                       if (exerciseName.isNotEmpty) {
                         setState(() {
                           if (initialName != null) {
                             int index = exercises.indexOf(initialName);
-                            exercises[index] = exerciseName;  // Update existing exercise
+                            exercises[index] = exerciseName; // Обновляем существующее упражнение
                           } else {
-                            exercises.add(exerciseName);  // Add new exercise
+                            exercises.add(exerciseName); // Добавляем новое упражнение
                           }
                         });
                         Navigator.of(context).pop();
@@ -97,13 +128,14 @@ class TrainingScreenState extends State<TrainingScreen> {
                     },
                     style: ElevatedButton.styleFrom(
                       fixedSize: const Size(185, 60),
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
+                      backgroundColor:elevatedButtonBackgroundColor, // Как было (можно заменить на elevatedButtonBackgroundColor, если хотите)
+                      foregroundColor:elevatedButtonForegroundColor, // Как было
                       shadowColor: Colors.black.withValues(alpha: 2),
-                      elevation: 5,),
-                    child: const Text(
+                      elevation: 5,
+                    ),
+                    child: Text(
                       'Сохранить',
-                      style: TextStyle(
+                      style: TextStyle( // Как было
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -120,25 +152,64 @@ class TrainingScreenState extends State<TrainingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Определяем стиль InputDecoration в зависимости от состояния
+    InputDecoration getTrainingNameInputDecoration() {
+      // Если поле в фокусе ИЛИ поле не в фокусе И пустое (для подсказки), показываем рамку и заливку
+      if (_isTrainingNameFocused || _trainingNameController.text.trim().isEmpty) {
+        return InputDecoration(
+          hintText: '--название тренировки--',
+          hintStyle: GoogleFonts.barlow( // Используем ваш шрифт
+            color: hintTextForegroundColor, // Используем цвет подсказки из ваших assets
+            fontWeight: FontWeight.bold,
+            fontSize: 18, // Уменьшенный размер шрифта для подсказки
+          ),
+          filled: true, // Заливка активна при фокусе или когда пусто
+          fillColor: inputInnerColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(width: 2, color: inputOutlineBorderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(width: 4, color: inputOutlineBorderColor),
+          ),
+        );
+      } else {
+        // Если поле НЕ в фокусе И содержит текст, убираем заливку и рамку
+        return InputDecoration(
+          filled: false, // Нет заливки
+          border: InputBorder.none, // Нет рамки
+          enabledBorder: InputBorder.none, // Нет рамки
+          focusedBorder: InputBorder.none, // Нет рамки
+        );
+      }
+    }
+
     return Scaffold(
       body: Stack(
         children: [
-          // Main content
+          // Основной контент
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                SizedBox(height: 70), // Top margin roughly 2-3 cm
-                Text(
-                  "--Название тренировки--",
-                  style: TextStyle(
-                    fontSize: 24, // Increased font size
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                SizedBox(height: 70), // Верхний отступ
+                // Поле для названия тренировки
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: TextField(
+                    decoration: getTrainingNameInputDecoration(), // Используем динамически созданный стиль
+                    controller: _trainingNameController,
+                    focusNode: _trainingNameFocusNode, // Привязываем FocusNode
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.barlow( // Стиль текста, который вводит пользователь
+                      color: elevatedButtonForegroundColor, // Используем цвет из ваших assets вместо Colors.black
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24, // Размер шрифта для введённого текста
+                    ),
                   ),
                 ),
-                SizedBox(height: 20),
-                // Display the exercises
+                // Список упражнений
                 Expanded(
                   child: ListView.builder(
                     itemCount: exercises.length,
@@ -149,18 +220,18 @@ class TrainingScreenState extends State<TrainingScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8.0),
-                          color: Color(0xFFE0E0E0), // Exercise background
+                          color: inputInnerColor, // Используем серый цвет из ваших assets
                         ),
                         child: ListTile(
                           title: Text(
                             exercises[index],
-                            style: TextStyle(
+                            style: GoogleFonts.barlow( // Используем ваш шрифт
                               fontSize: 16,
-                              color: Colors.black,
+                              color: elevatedButtonForegroundColor, // Цвет текста упражнения тоже из assets
                             ),
                           ),
                           trailing: IconButton(
-                            icon: Icon(Icons.edit, color: Colors.black),
+                            icon: Icon(Icons.edit, color: elevatedButtonForegroundColor), // Цвет иконки из assets
                             onPressed: () {
                               _openExerciseDialog(exercises[index]);
                             },
@@ -173,7 +244,7 @@ class TrainingScreenState extends State<TrainingScreen> {
               ],
             ),
           ),
-          // Buttons at the bottom
+          // Кнопки внизу
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
@@ -181,45 +252,45 @@ class TrainingScreenState extends State<TrainingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // "Save" button
+                  // Кнопка "Сохранить"
                   ElevatedButton(
                     onPressed: () {
-                      String trainingName = "Тренировка сохранена: ${_controller.text}";
-                      if (kDebugMode) {
-                        debugPrint(trainingName);
+                      String trainingName = _trainingNameController.text.trim();
+                      if (trainingName.isNotEmpty) {
+                        // Здесь можно добавить логику сохранения всей тренировки
+                        if (kDebugMode) {
+                          debugPrint("Тренировка '$trainingName' сохранена с ${exercises.length} упражнениями.");
+                        }
+                      } else {
+                        // Можно показать Snackbar или AlertDialog, если название не введено
+                        if (kDebugMode) {
+                          debugPrint("Пожалуйста, введите название тренировки.");
+                        }
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      shadowColor: Colors.black.withValues(alpha: 2),
-                      elevation: 5,
-                      minimumSize: Size(100, 45), // Same size for both buttons
+                      fixedSize: const Size(179, 65), // Размер кнопки
                     ),
                     child: Text(
-                      'Сохранить',
-                      style: TextStyle(
-                        fontSize: 16,
+                      'сохранить',
+                      style: GoogleFonts.barlow(
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
                       ),
-                    ),),
-                  // "Add Exercise" button
+                    ),
+                  ),
+                  // Кнопка "Добавить упражнение"
                   ElevatedButton(
                     onPressed: _openExerciseDialog,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                      shadowColor: Colors.black.withValues(alpha: 2),
-                      elevation: 5,
-                      minimumSize: Size(100, 45), // Same size for both buttons
+                      fixedSize: const Size(179, 65), // Размер кнопки
                     ),
                     child: Text(
-                      'Добавить упражнение',
-                      style: TextStyle(
-                        fontSize: 16,
+                      'добавить\nупражнение',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.barlow(
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
                       ),
                     ),
                   ),
