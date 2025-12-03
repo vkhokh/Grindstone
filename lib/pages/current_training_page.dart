@@ -4,12 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
 import 'set_menu_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // Добавляем импорт для JSON
 
 // Класс для передачи данных о тренировке
 class Training {
   final String name;
   final String timer;
-  final bool hasTraining;
+  final bool hasTraining; // true - тренировка активна, false - завершена/неактивна
 
   Training({
     required this.name,
@@ -34,11 +35,72 @@ class Training {
   }
 }
 
+// Класс для подхода
+class Approach {
+  final String reps;
+  final String weight;
+
+  Approach({required this.reps, required this.weight});
+
+  Map<String, dynamic> toJson() {
+    return {
+      'reps': reps,
+      'weight': weight,
+    };
+  }
+
+  static Approach fromJson(Map<String, dynamic> json) {
+    return Approach(
+      reps: json['reps'],
+      weight: json['weight'],
+    );
+  }
+}
+
+// Класс для упражнения
 class Exercise {
   final String name;
   List<Approach> approaches;
 
   Exercise({required this.name, this.approaches = const []});
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'approaches': approaches.map((a) => a.toJson()).toList(),
+    };
+  }
+
+  static Exercise fromJson(Map<String, dynamic> json) {
+    return Exercise(
+      name: json['name'],
+      approaches: List<Approach>.from(
+          (json['approaches'] as List).map((x) => Approach.fromJson(x))),
+    );
+  }
+}
+
+// Класс для полной информации о тренировке
+class FullTrainingData {
+  final Training basicInfo;
+  List<Exercise> exercises;
+
+  FullTrainingData({required this.basicInfo, this.exercises = const []});
+
+  Map<String, dynamic> toJson() {
+    return {
+      'basicInfo': basicInfo.toJson(),
+      'exercises': exercises.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  static FullTrainingData fromJson(Map<String, dynamic> json) {
+    return FullTrainingData(
+      basicInfo: Training.fromJson(json['basicInfo']),
+      exercises: List<Exercise>.from(
+          (json['exercises'] as List).map((x) => Exercise.fromJson(x))),
+    );
+  }
 }
 
 class CurrentWorkoutScreen extends StatefulWidget {
@@ -60,11 +122,49 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
   @override
   void initState() {
     super.initState();
+    _loadTrainingFromPrefs(); // Загружаем данные при инициализации
     _trainingNameFocusNode.addListener(() {
       setState(() {
         _isTrainingNameFocused = _trainingNameFocusNode.hasFocus;
       });
     });
+  }
+
+  // Загружаем полную информацию о тренировке из SharedPreferences
+  Future<void> _loadTrainingFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final trainingString = prefs.getString('current_training');
+    if (trainingString != null) {
+      try {
+        final jsonMap = jsonDecode(trainingString) as Map<String, dynamic>;
+        final fullData = FullTrainingData.fromJson(jsonMap);
+        _trainingNameController.text = fullData.basicInfo.name;
+        setState(() {
+          exercises = fullData.exercises; // Устанавливаем упражнения
+        });
+      } catch (e) {
+        print("Ошибка при загрузке тренировки: $e");
+        // Оставляем как есть или сбрасываем
+      }
+    }
+  }
+
+  // Сохраняем текущее состояние тренировки в SharedPreferences
+  Future<void> _saveCurrentTrainingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    String trainingName = _trainingNameController.text.trim();
+    if (trainingName.isNotEmpty) {
+      final basicInfo = Training(
+        name: trainingName,
+        timer: "--Таймер--",
+        hasTraining: true, // Указывает, что тренировка активна
+      );
+      final fullData = FullTrainingData(
+        basicInfo: basicInfo,
+        exercises: exercises, // Сохраняем текущие упражнения
+      );
+      await prefs.setString('current_training', jsonEncode(fullData.toJson()));
+    }
   }
 
   @override
@@ -191,6 +291,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     setState(() {
       exercises.add(Exercise(name: name, approaches: []));
     });
+    _saveCurrentTrainingState(); // Сохраняем после добавления упражнения
   }
 
   @override
@@ -206,6 +307,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
                   child: TextField(
+                    onChanged: (value) => _saveCurrentTrainingState(), // Сохраняем при изменении имени
                     decoration: getTrainingNameInputDecoration(),
                     controller: _trainingNameController,
                     focusNode: _trainingNameFocusNode,
@@ -252,6 +354,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                                   setState(() {
                                     exercise.approaches = result;
                                   });
+                                  _saveCurrentTrainingState(); // Сохраняем при изменении подходов
                                 }
                               },
                               child: Container(
@@ -310,21 +413,10 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                 children: [
                   ElevatedButton(
                     onPressed: () async {
-                      String trainingName = _trainingNameController.text.trim();
-                      if (trainingName.isNotEmpty) {
-                        final prefs = await SharedPreferences.getInstance();
-                        final training = Training(
-                          name: trainingName,
-                          timer: "--Таймер--",
-                          hasTraining: true,
-                        );
-                        await prefs.setString('current_training', training.toJson().toString());
-                        Navigator.pop(context, training);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Пожалуйста, введите название тренировки.")),
-                        );
-                      }
+                      // Завершаем тренировку: удаляем из SharedPreferences
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove('current_training');
+                      Navigator.pop(context); // Возвращаемся без результата
                     },
                     style: ElevatedButton.styleFrom(
                       fixedSize: const Size(179, 65),
