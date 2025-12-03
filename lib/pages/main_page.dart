@@ -1,7 +1,8 @@
-import 'package:dp/pages/current_training_page.dart'; // Импортируем целевую страницу
+import 'package:dp/pages/current_training_page.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:dp/colors.dart'; // Убедитесь, что путь корректен
+import 'package:dp/colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Training {
   final String name;
@@ -13,20 +14,66 @@ class Training {
     required this.timer,
     this.hasTraining = true,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'timer': timer,
+      'hasTraining': hasTraining,
+    };
+  }
+
+  static Training fromJson(Map<String, dynamic> json) {
+    return Training(
+      name: json['name'],
+      timer: json['timer'],
+      hasTraining: json['hasTraining'] ?? true,
+    );
+  }
 }
 
 class MainPage extends StatefulWidget {
-  final Training? training; // Передаваемая информация о тренировке
-  const MainPage({super.key, this.training});
+  const MainPage({super.key});
 
   @override
   State<MainPage> createState() => _MainPageState();
 }
 
 class _MainPageState extends State<MainPage> {
+  Training? _currentTraining;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentTraining();
+  }
+
+  Future<void> _loadCurrentTraining() async {
+    final prefs = await SharedPreferences.getInstance();
+    final trainingString = prefs.getString('current_training');
+    if (trainingString != null) {
+      // Преобразуем строку обратно в JSON и создаем Training
+      var json = trainingString.substring(1, trainingString.length - 1).split(', ');
+      Map<String, dynamic> jsonMap = {};
+      for (var item in json) {
+        var parts = item.split(': ');
+        var key = parts[0].replaceAll(RegExp(r'^{|}$'), '');
+        var value = parts[1];
+        if (key == 'hasTraining') {
+          jsonMap[key] = value == 'true';
+        } else {
+          jsonMap[key] = value.replaceAll('"', '');
+        }
+      }
+      setState(() {
+        _currentTraining = Training.fromJson(jsonMap);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    bool hasCurrentTraining = widget.training?.hasTraining ?? false;
+    bool hasCurrentTraining = _currentTraining?.hasTraining ?? false;
 
     return Scaffold(
       body: Padding(
@@ -70,9 +117,10 @@ class _MainPageState extends State<MainPage> {
                 ),
                 child: hasCurrentTraining
                     ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            widget.training!.name,
+                            _currentTraining!.name,
                             style: GoogleFonts.barlow(
                               fontWeight: FontWeight.bold,
                               fontSize: 20,
@@ -82,7 +130,7 @@ class _MainPageState extends State<MainPage> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            widget.training!.timer,
+                            _currentTraining!.timer,
                             style: GoogleFonts.barlow(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
@@ -91,16 +139,20 @@ class _MainPageState extends State<MainPage> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 20),
-                          // Кнопка "перейти в текущую тренировку"
                           ElevatedButton(
                             onPressed: () {
-                              // Переход на страницу текущей тренировки
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const CurrentWorkoutScreen(),
                                 ),
-                              );
+                              ).then((result) {
+                                if (result != null && result is Training) {
+                                  setState(() {
+                                    _currentTraining = result;
+                                  });
+                                }
+                              });
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: elevatedButtonBackgroundColor,
@@ -108,8 +160,7 @@ class _MainPageState extends State<MainPage> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 24),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                               textStyle: GoogleFonts.barlow(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -118,12 +169,13 @@ class _MainPageState extends State<MainPage> {
                             child: const Text('перейти в текущую тренировку'),
                           ),
                           const SizedBox(height: 15),
-                          // Кнопка "завершить трен"
                           ElevatedButton(
-                            onPressed: () {
-                              // Логика завершения тренировки
-                              // Например, сброс состояния тренировки
-                              // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainPage()));
+                            onPressed: () async {
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.remove('current_training');
+                              setState(() {
+                                _currentTraining = null;
+                              });
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: elevatedButtonBackgroundColor,
@@ -131,8 +183,7 @@ class _MainPageState extends State<MainPage> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 24),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                               textStyle: GoogleFonts.barlow(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -142,24 +193,27 @@ class _MainPageState extends State<MainPage> {
                           ),
                         ],
                       )
-                    : const SizedBox.shrink(), // Если нет текущей тренировки, отображаем пустой контейнер
+                    : const SizedBox.shrink(),
               ),
             ),
             const SizedBox(height: 40),
+
             // Нижние кнопки: "Начать тренировку" и "Архив тренировок"
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Переход на страницу создания/редактирования тренировки
-                      Navigator.push(
+                    onPressed: () async {
+                      final result = await Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const CurrentWorkoutScreen(),
-                        ),
+                        MaterialPageRoute(builder: (context) => const CurrentWorkoutScreen()),
                       );
+                      if (result != null && result is Training) {
+                        setState(() {
+                          _currentTraining = result;
+                        });
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: elevatedButtonBackgroundColor,
@@ -173,19 +227,13 @@ class _MainPageState extends State<MainPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Text(
-                      'Начать\nтренировку',
-                      textAlign: TextAlign.center,
-                    ),
+                    child: const Text('Начать\nтренировку', textAlign: TextAlign.center),
                   ),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Навигация на страницу архива тренировок
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => ArchivePage()));
-                    },
+                    onPressed: () {},
                     style: ElevatedButton.styleFrom(
                       backgroundColor: elevatedButtonBackgroundColor,
                       foregroundColor: elevatedButtonForegroundColor,
@@ -198,10 +246,7 @@ class _MainPageState extends State<MainPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Text(
-                      'Архив\nтренировок',
-                      textAlign: TextAlign.center,
-                    ),
+                    child: const Text('Архив\nтренировок', textAlign: TextAlign.center),
                   ),
                 ),
               ],

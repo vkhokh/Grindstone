@@ -2,7 +2,8 @@ import 'package:dp/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
-import 'set_menu_page.dart'; // Импортируем новый экран
+import 'set_menu_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Класс для передачи данных о тренировке
 class Training {
@@ -15,11 +16,27 @@ class Training {
     required this.timer,
     this.hasTraining = true,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'timer': timer,
+      'hasTraining': hasTraining,
+    };
+  }
+
+  static Training fromJson(Map<String, dynamic> json) {
+    return Training(
+      name: json['name'],
+      timer: json['timer'],
+      hasTraining: json['hasTraining'] ?? true,
+    );
+  }
 }
 
 class Exercise {
   final String name;
-  List<Approach> approaches; // Добавим подходы
+  List<Approach> approaches;
 
   Exercise({required this.name, this.approaches = const []});
 }
@@ -32,7 +49,7 @@ class CurrentWorkoutScreen extends StatefulWidget {
 }
 
 class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
-  List<Exercise> exercises = []; // Теперь упражнения содержат подходы
+  List<Exercise> exercises = [];
   final TextEditingController exerciseController = TextEditingController();
 
   final TextEditingController _trainingNameController = TextEditingController();
@@ -172,7 +189,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
   void _saveExercise(String name) {
     setState(() {
-      exercises.add(Exercise(name: name, approaches: [])); // Добавляем упражнение без подходов
+      exercises.add(Exercise(name: name, approaches: []));
     });
   }
 
@@ -225,7 +242,6 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                             final hasApproaches = exercise.approaches.isNotEmpty;
                             return GestureDetector(
                               onTap: () async {
-                                // Переход на SetMenuScreen
                                 final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -234,7 +250,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                                 );
                                 if (result != null && result is List<Approach>) {
                                   setState(() {
-                                    exercise.approaches = result; // Обновляем подходы
+                                    exercise.approaches = result;
                                   });
                                 }
                               },
@@ -293,20 +309,18 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       String trainingName = _trainingNameController.text.trim();
                       if (trainingName.isNotEmpty) {
-                        // Возвращаем тренировку на главный экран
-                        Navigator.pop(
-                          context,
-                          Training(
-                            name: trainingName,
-                            timer: "--Таймер--",
-                            hasTraining: true,
-                          ),
+                        final prefs = await SharedPreferences.getInstance();
+                        final training = Training(
+                          name: trainingName,
+                          timer: "--Таймер--",
+                          hasTraining: true,
                         );
+                        await prefs.setString('current_training', training.toJson().toString());
+                        Navigator.pop(context, training);
                       } else {
-                        // Показываем сообщение, если название не введено
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text("Пожалуйста, введите название тренировки.")),
                         );
