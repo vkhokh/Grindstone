@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
+import '../models/training_models.dart'; // Импортируем модели
 
 class SetMenuScreen extends StatefulWidget {
   final String exerciseName;
+  final List<Approach> initialApproaches; // Добавляем список подходов
 
-  const SetMenuScreen({super.key, required this.exerciseName});
+  const SetMenuScreen({super.key, required this.exerciseName, this.initialApproaches = const []});
 
   @override
   _SetMenuScreenState createState() => _SetMenuScreenState();
-}
-
-class Approach {
-  final String reps;
-  final String weight;
-
-  Approach({required this.reps, required this.weight});
 }
 
 class _SetMenuScreenState extends State<SetMenuScreen> {
@@ -23,6 +18,13 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
   final _weightController = TextEditingController();
 
   List<Approach> _approaches = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Загружаем начальные подходы при инициализации
+    _approaches = List.from(widget.initialApproaches); // Создаём копию
+  }
 
   @override
   void dispose() {
@@ -164,7 +166,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
       floatingActionButton: _approaches.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
-                Navigator.pop(context, _approaches); // Возвращаем подходы
+                Navigator.pop(context, _approaches); // Возвращаем обновлённый список подходов
               },
               backgroundColor: elevatedButtonBackgroundColor,
               foregroundColor: elevatedButtonForegroundColor,

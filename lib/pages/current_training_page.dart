@@ -2,106 +2,10 @@ import 'package:dp/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
-import 'set_menu_page.dart';
+import 'set_menu_page.dart'; // Предполагается, что путь к файлу правильный
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // Добавляем импорт для JSON
-
-// Класс для передачи данных о тренировке
-class Training {
-  final String name;
-  final String timer;
-  final bool hasTraining; // true - тренировка активна, false - завершена/неактивна
-
-  Training({
-    required this.name,
-    required this.timer,
-    this.hasTraining = true,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'timer': timer,
-      'hasTraining': hasTraining,
-    };
-  }
-
-  static Training fromJson(Map<String, dynamic> json) {
-    return Training(
-      name: json['name'],
-      timer: json['timer'],
-      hasTraining: json['hasTraining'] ?? true,
-    );
-  }
-}
-
-// Класс для подхода
-class Approach {
-  final String reps;
-  final String weight;
-
-  Approach({required this.reps, required this.weight});
-
-  Map<String, dynamic> toJson() {
-    return {
-      'reps': reps,
-      'weight': weight,
-    };
-  }
-
-  static Approach fromJson(Map<String, dynamic> json) {
-    return Approach(
-      reps: json['reps'],
-      weight: json['weight'],
-    );
-  }
-}
-
-// Класс для упражнения
-class Exercise {
-  final String name;
-  List<Approach> approaches;
-
-  Exercise({required this.name, this.approaches = const []});
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'approaches': approaches.map((a) => a.toJson()).toList(),
-    };
-  }
-
-  static Exercise fromJson(Map<String, dynamic> json) {
-    return Exercise(
-      name: json['name'],
-      approaches: List<Approach>.from(
-          (json['approaches'] as List).map((x) => Approach.fromJson(x))),
-    );
-  }
-}
-
-// Класс для полной информации о тренировке
-class FullTrainingData {
-  final Training basicInfo;
-  List<Exercise> exercises;
-
-  FullTrainingData({required this.basicInfo, this.exercises = const []});
-
-  Map<String, dynamic> toJson() {
-    return {
-      'basicInfo': basicInfo.toJson(),
-      'exercises': exercises.map((e) => e.toJson()).toList(),
-    };
-  }
-
-  static FullTrainingData fromJson(Map<String, dynamic> json) {
-    return FullTrainingData(
-      basicInfo: Training.fromJson(json['basicInfo']),
-      exercises: List<Exercise>.from(
-          (json['exercises'] as List).map((x) => Exercise.fromJson(x))),
-    );
-  }
-}
+import '../models/training_models.dart'; // Импортируем модели
 
 class CurrentWorkoutScreen extends StatefulWidget {
   const CurrentWorkoutScreen({super.key});
@@ -347,12 +251,21 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                                 final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => SetMenuScreen(exerciseName: exercise.name),
+                                    // Передаём имя и текущие подходы
+                                    builder: (context) => SetMenuScreen(exerciseName: exercise.name, initialApproaches: exercise.approaches),
                                   ),
                                 );
                                 if (result != null && result is List<Approach>) {
                                   setState(() {
-                                    exercise.approaches = result;
+                                    // Находим упражнение по индексу и заменяем его подходы
+                                    // (предполагаем, что индекс не изменился между навигацией)
+                                    // Более надёжно - найти по имени
+                                    final exerciseIndex = exercises.indexWhere((e) => e.name == exercise.name);
+                                    if (exerciseIndex != -1) {
+                                       exercises[exerciseIndex].approaches = result;
+                                    }
+                                    // Альтернатива: просто переназначить список, если индекс надёжен
+                                    // exercise.approaches = result;
                                   });
                                   _saveCurrentTrainingState(); // Сохраняем при изменении подходов
                                 }

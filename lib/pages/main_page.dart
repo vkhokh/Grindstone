@@ -4,72 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // Добавляем импорт для JSON
-
-// Классы Approach и Exercise должны быть определены здесь или в отдельном файле
-class Approach {
-  final String reps;
-  final String weight;
-
-  Approach({required this.reps, required this.weight});
-
-  static Approach fromJson(Map<String, dynamic> json) {
-    return Approach(
-      reps: json['reps'],
-      weight: json['weight'],
-    );
-  }
-}
-
-class Exercise {
-  final String name;
-  List<Approach> approaches;
-
-  Exercise({required this.name, this.approaches = const []});
-
-  static Exercise fromJson(Map<String, dynamic> json) {
-    return Exercise(
-      name: json['name'],
-      approaches: List<Approach>.from(
-          (json['approaches'] as List).map((x) => Approach.fromJson(x))),
-    );
-  }
-}
-
-class Training {
-  final String name;
-  final String timer;
-  final bool hasTraining;
-
-  Training({
-    required this.name,
-    required this.timer,
-    this.hasTraining = true,
-  });
-
-  static Training fromJson(Map<String, dynamic> json) {
-    return Training(
-      name: json['name'],
-      timer: json['timer'],
-      hasTraining: json['hasTraining'] ?? true,
-    );
-  }
-}
-
-// Класс для полной информации о тренировке
-class FullTrainingData {
-  final Training basicInfo;
-  List<Exercise> exercises;
-
-  FullTrainingData({required this.basicInfo, this.exercises = const []});
-
-  static FullTrainingData fromJson(Map<String, dynamic> json) {
-    return FullTrainingData(
-      basicInfo: Training.fromJson(json['basicInfo']),
-      exercises: List<Exercise>.from(
-          (json['exercises'] as List).map((x) => Exercise.fromJson(x))),
-    );
-  }
-}
+import '../models/training_models.dart'; // Импортируем модели
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -198,10 +133,19 @@ class _MainPageState extends State<MainPage> {
                                     itemBuilder: (context, idx) {
                                       final ex = _currentTrainingData!.exercises[idx];
                                       final hasApproaches = ex.approaches.isNotEmpty;
+                                      // Формируем строку с информацией об упражнении
+                                      String exInfo = ex.name;
+                                      if (hasApproaches) {
+                                        exInfo += " (${ex.approaches.length} подходов)";
+                                        // Опционально: показать первый подход
+                                        // if (ex.approaches.isNotEmpty) {
+                                        //   exInfo += "\n${ex.approaches[0].reps} x ${ex.approaches[0].weight} кг";
+                                        // }
+                                      }
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(vertical: 2.0),
                                         child: Text(
-                                          "${ex.name} ${hasApproaches ? '(${ex.approaches.length} подходов)' : ''}",
+                                          exInfo,
                                           style: GoogleFonts.barlow(
                                             fontSize: 14,
                                             color: Colors.black87,
@@ -240,7 +184,7 @@ class _MainPageState extends State<MainPage> {
                             ),
                             child: const Text('перейти в текущую тренировку'),
                           ),
-                          // Кнопка "Завершить тренировку" больше не нужна на главном экране,
+                          // Кнопка "Завершить тренировку больше не нужна на главном экране,
                           // так как она теперь в CurrentWorkoutScreen
                         ],
                       )
