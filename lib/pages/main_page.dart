@@ -1,3 +1,4 @@
+import 'package:dp/pages/current_training_page.dart'; // Импортируем целевую страницу
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart'; // Убедитесь, что путь корректен
@@ -13,17 +14,20 @@ class Training {
     this.hasTraining = true,
   });
 }
+
 class MainPage extends StatefulWidget {
-    final Training? training; // Передаваемая информация о тренировке
+  final Training? training; // Передаваемая информация о тренировке
   const MainPage({super.key, this.training});
- @override
+
+  @override
   State<MainPage> createState() => _MainPageState();
 }
 
 class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
-     bool hasCurrentTraining = widget.training?.hasTraining ?? false;
+    bool hasCurrentTraining = widget.training?.hasTraining ?? false;
+
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -41,15 +45,13 @@ class _MainPageState extends State<MainPage> {
                   ),
                   child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
                 ),
-                 Container(
+                Container(
                   width: 146,
                   height: 146,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                   ),
-                  padding: const EdgeInsets.only(
-                        right: 36, // 
-                      ),
+                  padding: const EdgeInsets.only(right: 36),
                   child: Image.asset('assets/images/icon_user.png', fit: BoxFit.contain),
                 ),
               ],
@@ -60,75 +62,89 @@ class _MainPageState extends State<MainPage> {
             SizedBox(
               width: 360,
               height: 312,
-            child : Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black, width: 2),
-                borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: hasCurrentTraining
+                    ? Column(
+                        children: [
+                          Text(
+                            widget.training!.name,
+                            style: GoogleFonts.barlow(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: Colors.black,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            widget.training!.timer,
+                            style: GoogleFonts.barlow(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          // Кнопка "перейти в текущую тренировку"
+                          ElevatedButton(
+                            onPressed: () {
+                              // Переход на страницу текущей тренировки
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CurrentWorkoutScreen(),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: elevatedButtonBackgroundColor,
+                              foregroundColor: elevatedButtonForegroundColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 24),
+                              textStyle: GoogleFonts.barlow(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            child: const Text('перейти в текущую тренировку'),
+                          ),
+                          const SizedBox(height: 15),
+                          // Кнопка "завершить трен"
+                          ElevatedButton(
+                            onPressed: () {
+                              // Логика завершения тренировки
+                              // Например, сброс состояния тренировки
+                              // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainPage()));
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: elevatedButtonBackgroundColor,
+                              foregroundColor: elevatedButtonForegroundColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 24),
+                              textStyle: GoogleFonts.barlow(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            child: const Text('завершить тренировку'),
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(), // Если нет текущей тренировки, отображаем пустой контейнер
               ),
-              child: hasCurrentTraining?
-               Column(
-                children: [
-                  Text(
-                    widget.training!.name,
-                    style: GoogleFonts.barlow(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: Colors.black,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    widget.training!.timer,
-                    style: GoogleFonts.barlow(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  // Кнопка "перейти в текущую тренировку"
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: elevatedButtonBackgroundColor,
-                      foregroundColor: elevatedButtonForegroundColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                      textStyle: GoogleFonts.barlow(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    child: const Text('перейти в текущую тренировку'),
-                  ),
-                  const SizedBox(height: 15),
-                  // Кнопка "завершить трен"
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: elevatedButtonBackgroundColor,
-                      foregroundColor: elevatedButtonForegroundColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                      textStyle: GoogleFonts.barlow(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    child: const Text('завершить тренировку'),
-                  ),
-                ],
-              )
-              : const SizedBox.shrink(),
             ),
-           ),
             const SizedBox(height: 40),
             // Нижние кнопки: "Начать тренировку" и "Архив тренировок"
             Row(
@@ -136,7 +152,15 @@ class _MainPageState extends State<MainPage> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      // Переход на страницу создания/редактирования тренировки
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CurrentWorkoutScreen(),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: elevatedButtonBackgroundColor,
                       foregroundColor: elevatedButtonForegroundColor,
@@ -149,14 +173,19 @@ class _MainPageState extends State<MainPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Text('Начать\nтренировку',
-                    textAlign: TextAlign.center,),
+                    child: const Text(
+                      'Начать\nтренировку',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      // TODO: Навигация на страницу архива тренировок
+                      // Navigator.push(context, MaterialPageRoute(builder: (context) => ArchivePage()));
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: elevatedButtonBackgroundColor,
                       foregroundColor: elevatedButtonForegroundColor,
@@ -169,7 +198,10 @@ class _MainPageState extends State<MainPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Text('Архив\nтренировок',textAlign: TextAlign.center,),
+                    child: const Text(
+                      'Архив\nтренировок',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ],

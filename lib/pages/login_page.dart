@@ -1,9 +1,9 @@
-import 'package:dp/pages/current_training_page.dart';
 import 'package:dp/pages/main_page.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
   @override
   LoginPageState createState() => LoginPageState();
 }
@@ -11,7 +11,6 @@ class LoginPage extends StatefulWidget {
 class LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  // final TextEditingController nameController = TextEditingController();
 
   bool isRegister = true;
 
@@ -22,7 +21,6 @@ class LoginPageState extends State<LoginPage> {
         padding: EdgeInsets.only(left: 30.0, right: 30.0),
         child: SizedBox.expand(
           child: Column(
-            // mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Padding(

@@ -1,5 +1,5 @@
-import 'package:dp/theme/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:dp/theme/theme.dart';
 import 'pages/start_page.dart';
 
 void main() => runApp(const MainApp());
@@ -9,6 +9,11 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: StartPage(), theme: mainTheme);
+    return MaterialApp(
+      title: 'Grindstone',
+      theme: mainTheme,
+      home: StartPage(),
+      debugShowCheckedModeBanner: false,
+    );
   }
 }
