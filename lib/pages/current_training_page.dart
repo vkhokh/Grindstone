@@ -1,4 +1,3 @@
-import 'package:dp/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
@@ -6,6 +5,7 @@ import 'set_menu_page.dart'; // Предполагается, что путь к
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // Добавляем импорт для JSON
 import '../models/training_models.dart'; // Импортируем модели
+import '../models/timer.dart';
 
 class CurrentWorkoutScreen extends StatefulWidget {
   const CurrentWorkoutScreen({super.key});
@@ -47,7 +47,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
           exercises = fullData.exercises; // Устанавливаем упражнения
         });
       } catch (e) {
-        print("Ошибка при загрузке тренировки: $e");
+        // print("Ошибка при загрузке тренировки: $e");
         // Оставляем как есть или сбрасываем
       }
     }
@@ -60,7 +60,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     if (trainingName.isNotEmpty) {
       final basicInfo = Training(
         name: trainingName,
-        timer: "--Таймер--",
+        timer: Timer(hours: 0, minutes: 0, seconds: 0),
         hasTraining: true, // Указывает, что тренировка активна
       );
       final fullData = FullTrainingData(
@@ -116,7 +116,9 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
           backgroundColor: backGroundColor,
           child: Container(
             width: 300,
@@ -150,13 +152,22 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                         ),
                         filled: false,
                         border: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.black, width: 2.0),
+                          borderSide: BorderSide(
+                            color: Colors.black,
+                            width: 2.0,
+                          ),
                         ),
                         enabledBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.black, width: 2.0),
+                          borderSide: BorderSide(
+                            color: Colors.black,
+                            width: 2.0,
+                          ),
                         ),
                         focusedBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.black, width: 2.0),
+                          borderSide: BorderSide(
+                            color: Colors.black,
+                            width: 2.0,
+                          ),
                         ),
                       ),
                       controller: exerciseController,
@@ -203,6 +214,22 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     return Scaffold(
       body: Stack(
         children: [
+          // Кнопка "назад" в левом верхнем углу
+          Positioned(
+            // top: 40,
+            // left: 16,
+            child: IconButton(
+              icon: Icon(
+                Icons
+                    .arrow_back, // Или используйте Icons.close, если предпочитаете крестик
+                color: elevatedButtonForegroundColor, // Используем ваш цвет
+                size: 20,
+              ),
+              onPressed: () {
+                Navigator.pop(context); // Просто возвращаемся назад
+              },
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -211,7 +238,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
                   child: TextField(
-                    onChanged: (value) => _saveCurrentTrainingState(), // Сохраняем при изменении имени
+                    onChanged: (value) =>
+                        _saveCurrentTrainingState(), // Сохраняем при изменении имени
                     decoration: getTrainingNameInputDecoration(),
                     controller: _trainingNameController,
                     focusNode: _trainingNameFocusNode,
@@ -227,15 +255,15 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                   padding: const EdgeInsets.only(top: 20, bottom: 20),
                   child: Container(
                     width: double.infinity,
-                    child: Text(
-                      "--Таймер--",
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.barlow(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: hintTextForegroundColor,
-                      ),
-                    ),
+                    // child: Text(
+                    //   "00:00:00",
+                    //   textAlign: TextAlign.center,
+                    //   style: GoogleFonts.barlow(
+                    //     fontSize: 18,
+                    //     fontWeight: FontWeight.bold,
+                    //     color: hintTextForegroundColor,
+                    //   ),
+                    // ),
                   ),
                 ),
                 Expanded(
@@ -245,24 +273,32 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                           itemCount: exercises.length,
                           itemBuilder: (context, index) {
                             final exercise = exercises[index];
-                            final hasApproaches = exercise.approaches.isNotEmpty;
+                            final hasApproaches =
+                                exercise.approaches.isNotEmpty;
                             return GestureDetector(
                               onTap: () async {
                                 final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     // Передаём имя и текущие подходы
-                                    builder: (context) => SetMenuScreen(exerciseName: exercise.name, initialApproaches: exercise.approaches),
+                                    builder: (context) => SetMenuScreen(
+                                      exerciseName: exercise.name,
+                                      initialApproaches: exercise.approaches,
+                                    ),
                                   ),
                                 );
-                                if (result != null && result is List<Approach>) {
+                                if (result != null &&
+                                    result is List<Approach>) {
                                   setState(() {
                                     // Находим упражнение по индексу и заменяем его подходы
                                     // (предполагаем, что индекс не изменился между навигацией)
                                     // Более надёжно - найти по имени
-                                    final exerciseIndex = exercises.indexWhere((e) => e.name == exercise.name);
+                                    final exerciseIndex = exercises.indexWhere(
+                                      (e) => e.name == exercise.name,
+                                    );
                                     if (exerciseIndex != -1) {
-                                       exercises[exerciseIndex].approaches = result;
+                                      exercises[exerciseIndex].approaches =
+                                          result;
                                     }
                                     // Альтернатива: просто переназначить список, если индекс надёжен
                                     // exercise.approaches = result;
@@ -274,7 +310,9 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                                 width: 354,
                                 height: 41,
                                 margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8.0),
                                   color: inputInnerColor,

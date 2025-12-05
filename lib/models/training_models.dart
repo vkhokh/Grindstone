@@ -1,4 +1,5 @@
-// lib/models/training_models.dart
+import 'package:dp/models/timer.dart';
+
 class Approach {
   final String reps;
   final String weight;
@@ -6,17 +7,11 @@ class Approach {
   Approach({required this.reps, required this.weight});
 
   Map<String, dynamic> toJson() {
-    return {
-      'reps': reps,
-      'weight': weight,
-    };
+    return {'reps': reps, 'weight': weight};
   }
 
   static Approach fromJson(Map<String, dynamic> json) {
-    return Approach(
-      reps: json['reps'],
-      weight: json['weight'],
-    );
+    return Approach(reps: json['reps'], weight: json['weight']);
   }
 }
 
@@ -37,34 +32,27 @@ class Exercise {
     return Exercise(
       name: json['name'],
       approaches: List<Approach>.from(
-          (json['approaches'] as List).map((x) => Approach.fromJson(x))),
+        (json['approaches'] as List).map((x) => Approach.fromJson(x)),
+      ),
     );
   }
 }
 
 class Training {
   final String name;
-  final String timer;
+  final Timer timer;
   final bool hasTraining;
 
-  Training({
-    required this.name,
-    required this.timer,
-    this.hasTraining = true,
-  });
+  Training({required this.name, required this.timer, this.hasTraining = true});
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'timer': timer,
-      'hasTraining': hasTraining,
-    };
+    return {'name': name, 'timer': timer.toJson(), 'hasTraining': hasTraining};
   }
 
   static Training fromJson(Map<String, dynamic> json) {
     return Training(
       name: json['name'],
-      timer: json['timer'],
+      timer: Timer.fromJson(json['timer']),
       hasTraining: json['hasTraining'] ?? true,
     );
   }
@@ -87,7 +75,8 @@ class FullTrainingData {
     return FullTrainingData(
       basicInfo: Training.fromJson(json['basicInfo']),
       exercises: List<Exercise>.from(
-          (json['exercises'] as List).map((x) => Exercise.fromJson(x))),
+        (json['exercises'] as List).map((x) => Exercise.fromJson(x)),
+      ),
     );
   }
 }
