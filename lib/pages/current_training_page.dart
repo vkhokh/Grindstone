@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
-import 'set_menu_page.dart';
+import 'set_menu_page.dart'; // Предполагается, что путь к файлу правильный
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import '../models/training_models.dart';
+import 'dart:convert'; // Добавляем импорт для JSON
+import '../models/training_models.dart'; // Импортируем модели
 import '../models/timer.dart';
 
 class CurrentWorkoutScreen extends StatefulWidget {
@@ -18,29 +18,18 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
   List<Exercise> exercises = [];
   final TextEditingController exerciseController = TextEditingController();
 
-  // Поле для названия тренировки
   final TextEditingController _trainingNameController = TextEditingController();
   final FocusNode _trainingNameFocusNode = FocusNode();
 
-  // Поле для описания тренировки
-  final TextEditingController _trainingDescriptionController = TextEditingController();
-  final FocusNode _trainingDescriptionFocusNode = FocusNode();
-
   bool _isTrainingNameFocused = false;
-  bool _isTrainingDescriptionFocused = false;
 
   @override
   void initState() {
     super.initState();
-    _loadTrainingFromPrefs();
+    _loadTrainingFromPrefs(); // Загружаем данные при инициализации
     _trainingNameFocusNode.addListener(() {
       setState(() {
         _isTrainingNameFocused = _trainingNameFocusNode.hasFocus;
-      });
-    });
-    _trainingDescriptionFocusNode.addListener(() {
-      setState(() {
-        _isTrainingDescriptionFocused = _trainingDescriptionFocusNode.hasFocus;
       });
     });
   }
@@ -54,12 +43,12 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
         final jsonMap = jsonDecode(trainingString) as Map<String, dynamic>;
         final fullData = FullTrainingData.fromJson(jsonMap);
         _trainingNameController.text = fullData.basicInfo.name;
-        _trainingDescriptionController.text = fullData.basicInfo.description ?? '';
         setState(() {
-          exercises = fullData.exercises;
+          exercises = fullData.exercises; // Устанавливаем упражнения
         });
       } catch (e) {
-        // Ошибка при загрузке
+        // print("Ошибка при загрузке тренировки: $e");
+        // Оставляем как есть или сбрасываем
       }
     }
   }
@@ -68,17 +57,15 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
   Future<void> _saveCurrentTrainingState() async {
     final prefs = await SharedPreferences.getInstance();
     String trainingName = _trainingNameController.text.trim();
-    String trainingDescription = _trainingDescriptionController.text.trim();
     if (trainingName.isNotEmpty) {
       final basicInfo = Training(
         name: trainingName,
-        description: trainingDescription,
         timer: Timer(hours: 0, minutes: 0, seconds: 0),
-        hasTraining: true,
+        hasTraining: true, // Указывает, что тренировка активна
       );
       final fullData = FullTrainingData(
         basicInfo: basicInfo,
-        exercises: exercises,
+        exercises: exercises, // Сохраняем текущие упражнения
       );
       await prefs.setString('current_training', jsonEncode(fullData.toJson()));
     }
@@ -89,65 +76,37 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     exerciseController.dispose();
     _trainingNameController.dispose();
     _trainingNameFocusNode.dispose();
-    _trainingDescriptionController.dispose();
-    _trainingDescriptionFocusNode.dispose();
     super.dispose();
   }
 
-  // Оформление поля для названия тренировки
   InputDecoration getTrainingNameInputDecoration() {
-    return InputDecoration(
-      hintText: 'Верх тела, День ног...',
-      hintStyle: GoogleFonts.barlow(
-        color: hintTextForegroundColor,
-        fontWeight: FontWeight.bold,
-        fontSize: 18,
-      ),
-      filled: true,
-      fillColor: inputInnerColor,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
-      alignLabelWithHint: true,
-      contentPadding: EdgeInsets.only(left: 16.0, top: 16.0, bottom: 16.0),
-    );
-  }
-
-  // Оформление поля для описания тренировки
-  InputDecoration getTrainingDescriptionInputDecoration() {
-    return InputDecoration(
-      hintText: 'Описание',
-      hintStyle: GoogleFonts.barlow(
-        color: hintTextForegroundColor,
-        fontWeight: FontWeight.bold,
-        fontSize: 18,
-      ),
-      filled: true,
-      fillColor: inputInnerColor,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide.none,
-      ),
-      alignLabelWithHint: true,
-      contentPadding: EdgeInsets.only(left: 16.0, top: 16.0, bottom: 16.0, right: 16.0),
-    );
+    if (_isTrainingNameFocused || _trainingNameController.text.trim().isEmpty) {
+      return InputDecoration(
+        hintText: '--название тренировки--',
+        hintStyle: GoogleFonts.barlow(
+          color: hintTextForegroundColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+        filled: true,
+        fillColor: inputInnerColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(width: 2, color: inputOutlineBorderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(width: 4, color: inputOutlineBorderColor),
+        ),
+      );
+    } else {
+      return InputDecoration(
+        filled: false,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+      );
+    }
   }
 
   void _openExerciseDialog() {
@@ -247,7 +206,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     setState(() {
       exercises.add(Exercise(name: name, approaches: []));
     });
-    _saveCurrentTrainingState();
+    _saveCurrentTrainingState(); // Сохраняем после добавления упражнения
   }
 
   @override
@@ -257,70 +216,34 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
         children: [
           // Кнопка "назад" в левом верхнем углу
           Positioned(
+            // top: 40,
+            // left: 16,
             child: IconButton(
               icon: Icon(
-                Icons.arrow_back,
-                color: elevatedButtonForegroundColor,
+                Icons
+                    .arrow_back, // Или используйте Icons.close, если предпочитаете крестик
+                color: elevatedButtonForegroundColor, // Используем ваш цвет
                 size: 20,
               ),
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(context); // Просто возвращаемся назад
               },
             ),
           ),
-
-          // Заголовок "название"
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 18.0, top: 58.0),
-                child: Text(
-                  'название',
-                  style: GoogleFonts.barlow(
-                    fontSize: 18,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Заголовок "описание"
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 18.0, top: 168.0),
-                child: Text(
-                  'описание',
-                  style: GoogleFonts.barlow(
-                    fontSize: 18,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Основной контент
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
                 SizedBox(height: 70),
-
-                // Поле для названия тренировки
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 40.0),
+                  padding: const EdgeInsets.only(bottom: 20),
                   child: TextField(
-                    onChanged: (value) => _saveCurrentTrainingState(),
+                    onChanged: (value) =>
+                        _saveCurrentTrainingState(), // Сохраняем при изменении имени
                     decoration: getTrainingNameInputDecoration(),
                     controller: _trainingNameController,
                     focusNode: _trainingNameFocusNode,
-                    textAlign: TextAlign.left,
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.barlow(
                       color: elevatedButtonForegroundColor,
                       fontWeight: FontWeight.bold,
@@ -328,26 +251,21 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                     ),
                   ),
                 ),
-
-                // Поле для описания тренировки
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 40.0),
-                  child: TextField(
-                    onChanged: (value) => _saveCurrentTrainingState(),
-                    decoration: getTrainingDescriptionInputDecoration(),
-                    controller: _trainingDescriptionController,
-                    focusNode: _trainingDescriptionFocusNode,
-                    textAlign: TextAlign.left,
-                    // maxLines убран - теперь это однострочное поле
-                    style: GoogleFonts.barlow(
-                      color: elevatedButtonForegroundColor,
-                      fontWeight: FontWeight.normal,
-                      fontSize: 18,
-                    ),
+                  padding: const EdgeInsets.only(top: 20, bottom: 20),
+                  child: Container(
+                    width: double.infinity,
+                    // child: Text(
+                    //   "00:00:00",
+                    //   textAlign: TextAlign.center,
+                    //   style: GoogleFonts.barlow(
+                    //     fontSize: 18,
+                    //     fontWeight: FontWeight.bold,
+                    //     color: hintTextForegroundColor,
+                    //   ),
+                    // ),
                   ),
                 ),
-
-                // Список упражнений
                 Expanded(
                   child: exercises.isEmpty
                       ? const SizedBox()
@@ -355,28 +273,37 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                           itemCount: exercises.length,
                           itemBuilder: (context, index) {
                             final exercise = exercises[index];
-                            final hasApproaches = exercise.approaches.isNotEmpty;
+                            final hasApproaches =
+                                exercise.approaches.isNotEmpty;
                             return GestureDetector(
                               onTap: () async {
                                 final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
+                                    // Передаём имя и текущие подходы
                                     builder: (context) => SetMenuScreen(
                                       exerciseName: exercise.name,
                                       initialApproaches: exercise.approaches,
                                     ),
                                   ),
                                 );
-                                if (result != null && result is List<Approach>) {
+                                if (result != null &&
+                                    result is List<Approach>) {
                                   setState(() {
+                                    // Находим упражнение по индексу и заменяем его подходы
+                                    // (предполагаем, что индекс не изменился между навигацией)
+                                    // Более надёжно - найти по имени
                                     final exerciseIndex = exercises.indexWhere(
                                       (e) => e.name == exercise.name,
                                     );
                                     if (exerciseIndex != -1) {
-                                      exercises[exerciseIndex].approaches = result;
+                                      exercises[exerciseIndex].approaches =
+                                          result;
                                     }
+                                    // Альтернатива: просто переназначить список, если индекс надёжен
+                                    // exercise.approaches = result;
                                   });
-                                  _saveCurrentTrainingState();
+                                  _saveCurrentTrainingState(); // Сохраняем при изменении подходов
                                 }
                               },
                               child: Container(
@@ -428,20 +355,19 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
               ],
             ),
           ),
-
-          // Нижние кнопки
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 48.0, left: 16.0, right: 16.0),
+              padding: const EdgeInsets.all(16.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   ElevatedButton(
                     onPressed: () async {
+                      // Завершаем тренировку: удаляем из SharedPreferences
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.remove('current_training');
-                      Navigator.pop(context);
+                      Navigator.pop(context); // Возвращаемся без результата
                     },
                     style: ElevatedButton.styleFrom(
                       fixedSize: const Size(179, 65),
