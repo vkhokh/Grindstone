@@ -1,4 +1,5 @@
 import 'package:dp/pages/current_training_page.dart';
+import 'package:dp/pages/profile_page.dart'; // Добавьте этот импорт
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dp/colors.dart';
@@ -274,15 +275,29 @@ class _MainPageState extends State<MainPage> {
           ),
           child: Row(
             children: [
-              _buildTab(Icons.home, 'Домой', true),
+              _buildTab(Icons.home, 'Домой', true, onTap: null), // Текущая страница
               const Spacer(),
-              _buildTab(Icons.view_list, 'Тренировки', false),
+              _buildTab(Icons.view_list, 'Тренировки', false, onTap: () {
+                // Здесь будет навигация на страницу тренировок
+                // Navigator.push(context, MaterialPageRoute(builder: (context) => TrainingPage()));
+              }),
               const Spacer(),
               _buildFloatingButton(context),
               const Spacer(),
-              _buildTab(Icons.bar_chart, 'Прогресс', false),
+              _buildTab(Icons.bar_chart, 'Прогресс', false, onTap: () {
+                // Здесь будет навигация на страницу прогресса
+                // Navigator.push(context, MaterialPageRoute(builder: (context) => ProgressPage()));
+              }),
               const Spacer(),
-              _buildTab(Icons.person, 'Профиль', false),
+              _buildTab(Icons.person, 'Профиль', false, onTap: () {
+                // Навигация на страницу профиля
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(), // Используем ProfilePage с большой буквы
+                  ),
+                );
+              }),
             ],
           ),
         ),
@@ -290,24 +305,27 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  // Метод для создания вкладок навигации
-  Widget _buildTab(IconData icon, String label, bool isActive) {
+  // Метод для создания вкладок навигации - ИЗМЕНЕН: добавлен параметр onTap
+  Widget _buildTab(IconData icon, String label, bool isActive, {VoidCallback? onTap}) {
     final color = isActive ? elevatedButtonBackgroundColor : Colors.grey[700];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: GoogleFonts.barlow(
-            fontSize: 14,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            color: color,
+    return GestureDetector(
+      onTap: onTap, // Добавляем обработчик нажатия
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.barlow(
+              fontSize: 14,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
