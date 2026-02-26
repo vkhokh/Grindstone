@@ -60,7 +60,7 @@ class RegistrationPageState extends State<RegistrationPage> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Почта',
-                      contentPadding: EdgeInsets.symmetric(vertical: 16),
+                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 13),
                       border: const OutlineInputBorder(),
                     ),
                     controller: emailController,
@@ -77,7 +77,7 @@ class RegistrationPageState extends State<RegistrationPage> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Пароль',
-                      contentPadding: EdgeInsets.symmetric(vertical: 16),
+                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 13),
                       border: const OutlineInputBorder(),
                     ),
                     controller: passwordController,
@@ -95,7 +95,7 @@ class RegistrationPageState extends State<RegistrationPage> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Повторите пароль',
-                      contentPadding: EdgeInsets.symmetric(vertical: 16),
+                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 13),
                       border: const OutlineInputBorder(),
                     ),
                     controller: confirmPasswordController,
