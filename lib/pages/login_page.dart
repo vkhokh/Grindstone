@@ -1,5 +1,6 @@
 import 'package:dp/pages/main_page.dart';
 import 'package:flutter/material.dart';
+import 'package:dp/pages/registration_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -60,7 +61,7 @@ class LoginPageState extends State<LoginPage> {
                   width: 288,
                   height: 56,
                   child: TextField(
-                    decoration: InputDecoration(hintText: 'Логин'),
+                    decoration: InputDecoration(hintText: 'Пароль'),
                     controller: passwordController,
                   ),
                 ),
@@ -75,6 +76,27 @@ class LoginPageState extends State<LoginPage> {
                 style: ElevatedButton.styleFrom(fixedSize: Size(185, 60)),
                 child: Text('ВОЙТИ'),
               ),
+              Padding(
+                padding: EdgeInsets.only(bottom: 10),
+                child:
+              TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RegistrationPage()),
+                );
+              },
+              child: Text(
+                'Зарегистрироваться',
+                style: TextStyle(
+                  color: const Color.fromARGB(255, 101, 115, 126),
+                  fontSize: 18,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Colors.grey,
+                ),
+              ),
+            ),
+            ),
             ],
           ),
         ),
