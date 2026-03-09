@@ -94,6 +94,24 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     super.dispose();
   }
 
+  // Функция для правильного склонения слова "подход"
+  String _getApproachWord(int count) {
+    if (count % 100 >= 11 && count % 100 <= 19) {
+      return 'подходов';
+    }
+    
+    switch (count % 10) {
+      case 1:
+        return 'подход';
+      case 2:
+      case 3:
+      case 4:
+        return 'подхода';
+      default:
+        return 'подходов';
+    }
+  }
+
   // Оформление поля для названия тренировки
   InputDecoration getTrainingNameInputDecoration() {
     return InputDecoration(
@@ -404,7 +422,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                                     ),
                                     if (hasApproaches)
                                       Text(
-                                        '${exercise.approaches.length} подходов',
+                                        '${exercise.approaches.length} ${_getApproachWord(exercise.approaches.length)}',
                                         style: GoogleFonts.barlow(
                                           fontSize: 14,
                                           color: Colors.grey,
