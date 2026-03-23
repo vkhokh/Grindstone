@@ -41,13 +41,11 @@ class Exercise {
 class Training {
   final String name;
   final String description; // ← ДОБАВЛЕНО
-  final Timer timer;
   final bool hasTraining;
 
   Training({
     required this.name,
-    required this.description, // ← ДОБАВЛЕНО
-    required this.timer, 
+    required this.description, // ← ДОБАВЛЕНО 
     this.hasTraining = true
   });
 
@@ -55,7 +53,6 @@ class Training {
     return {
       'name': name,
       'description': description, // ← ДОБАВЛЕНО
-      'timer': timer.toJson(), 
       'hasTraining': hasTraining
     };
   }
@@ -64,7 +61,6 @@ class Training {
     return Training(
       name: json['name'],
       description: json['description'] ?? '', // ← ДОБАВЛЕНО
-      timer: Timer.fromJson(json['timer']),
       hasTraining: json['hasTraining'] ?? true,
     );
   }

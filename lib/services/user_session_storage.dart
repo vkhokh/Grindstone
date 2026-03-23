@@ -39,6 +39,8 @@ class UserSessionStorage {
 
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_isLoggedInKey, false);
+    await prefs.remove(_profileKey);
+    await prefs.remove(_isLoggedInKey);
+    await prefs.remove('current_training');
   }
 }

@@ -3,7 +3,7 @@ import 'package:dp/pages/main_page.dart';
 import 'package:dp/services/user_session_storage.dart';
 import 'package:dp/widgets/user_profile_form.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:dp/colors.dart';
 
 class UserInfoPage extends StatefulWidget {
   const UserInfoPage({super.key});
@@ -20,6 +20,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
   UserGender? _selectedGender;
   bool _isSaving = false;
 
+  String? _nameError;
+  String? _heightError;
+  String? _weightError;
+  String? _genderError;
+
   @override
   void initState() {
     super.initState();
@@ -30,13 +35,75 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
   @override
   void dispose() {
-    _nameController.removeListener(_refreshState);
-    _heightController.removeListener(_refreshState);
-    _weightController.removeListener(_refreshState);
     _nameController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     super.dispose();
+  }
+
+  void _refreshState() {
+    setState(() {});
+  }
+
+  double? _parseHeight() {
+    final value = _heightController.text.trim().replaceAll(',', '.');
+    if (value.isEmpty) {
+      return null;
+    }
+    return double.tryParse(value);
+  }
+
+  double? _parseWeight() {
+    final value = _weightController.text.trim().replaceAll(',', '.');
+    if (value.isEmpty) {
+      return null;
+    }
+    return double.tryParse(value);
+  }
+
+  bool _validateForm() {
+    final name = _nameController.text.trim();
+    final height = _parseHeight();
+    final weight = _parseWeight();
+
+    String? newNameError;
+    String? newHeightError;
+    String? newWeightError;
+    String? newGenderError;
+
+    if (name.isEmpty) {
+      newNameError = 'Введите имя';
+    } else if (name.length < 2) {
+      newNameError = 'Имя должно быть не короче 2 символов';
+    }
+
+    if (_selectedGender == null) {
+      newGenderError = 'Выберите пол';
+    }
+
+    if (height == null) {
+      newHeightError = 'Введите рост';
+    } else if (height < 100 || height > 250) {
+      newHeightError = 'Рост должен быть от 100 до 250 см';
+    }
+
+    if (weight == null) {
+      newWeightError = 'Введите вес';
+    } else if (weight < 30 || weight > 300) {
+      newWeightError = 'Вес должен быть от 30 до 300 кг';
+    }
+
+    setState(() {
+      _nameError = newNameError;
+      _genderError = newGenderError;
+      _heightError = newHeightError;
+      _weightError = newWeightError;
+    });
+
+    return newNameError == null &&
+        newGenderError == null &&
+        newHeightError == null &&
+        newWeightError == null;
   }
 
   bool get _isFormValid {
@@ -46,72 +113,37 @@ class _UserInfoPageState extends State<UserInfoPage> {
         _parseWeight() != null;
   }
 
-  double? _parseHeight() {
-    final value = _heightController.text.trim();
-    if (value.isEmpty) {
-      return null;
-    }
-
-    final parsed = double.tryParse(value);
-    if (parsed == null || parsed <= 0) {
-      return null;
-    }
-
-    return parsed;
-  }
-
-  double? _parseWeight() {
-    final value = _weightController.text.trim().replaceAll(',', '.');
-    if (value.isEmpty) {
-      return null;
-    }
-
-    final parsed = double.tryParse(value);
-    if (parsed == null || parsed <= 0) {
-      return null;
-    }
-
-    return parsed;
-  }
-
-  void _refreshState() {
-    setState(() {});
-  }
-
   Future<void> _saveProfile() async {
-    final height = _parseHeight();
-    final weight = _parseWeight();
-    if (!_isFormValid || height == null || weight == null || _selectedGender == null) {
-      return;
-    }
+    if (!_validateForm()) return;
 
-    setState(() {
-      _isSaving = true;
-    });
+    final height = _parseHeight()!;
+    final weight = _parseWeight()!;
+
+    setState(() => _isSaving = true);
 
     await UserSessionStorage.saveProfile(
       UserProfileData(
         name: _nameController.text.trim(),
-        gender: _selectedGender,
+        gender: _selectedGender!,
         heightCm: height,
         weightKg: weight,
       ),
     );
+
     await UserSessionStorage.setLoggedIn(true);
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
-    Navigator.of(context).pushAndRemoveUntil(
+    Navigator.pushReplacement(
+      context,
       MaterialPageRoute(builder: (context) => const MainPage()),
-      (route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: backGroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
@@ -120,46 +152,89 @@ class _UserInfoPageState extends State<UserInfoPage> {
             children: [
               Image.asset(
                 'assets/images/icon_user.png',
-                height: 150,
-                width: 150,
+                height: 140,
               ),
-              const SizedBox(height: 10),
-              Text(
+              const SizedBox(height: 12),
+              const Text(
                 'Расскажите о себе',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                style: TextStyle(
                   fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
+              const Text(
                 'Эти данные появятся в профиле и их можно будет изменить позже.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.barlow(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 30),
+
               UserProfileForm(
                 nameController: _nameController,
                 heightController: _heightController,
                 weightController: _weightController,
                 selectedGender: _selectedGender,
+                nameErrorText: _nameError,
+                heightErrorText: _heightError,
+                weightErrorText: _weightError,
+                genderErrorText: _genderError,
                 onGenderSelected: (gender) {
                   setState(() {
                     _selectedGender = gender;
+                    _genderError = null;
                   });
                 },
+                onNameChanged: (_) {
+                  if (_nameError != null) {
+                    setState(() {
+                      _nameError = null;
+                    });
+                  }
+                },
+                onHeightChanged: (_) {
+                  if (_heightError != null) {
+                    setState(() {
+                      _heightError = null;
+                    });
+                  }
+                },
+                onWeightChanged: (_) {
+                  if (_weightError != null) {
+                    setState(() {
+                      _weightError = null;
+                    });
+                  }
+                },
               ),
-              const SizedBox(height: 32),
+
+              const SizedBox(height: 30),
+
               SizedBox(
                 width: 265,
                 height: 60,
                 child: ElevatedButton(
-                  onPressed: _isFormValid && !_isSaving ? _saveProfile : null,
-                  child: Text(_isSaving ? 'Сохранение...' : 'Продолжить'),
+                  onPressed: !_isSaving ? _saveProfile : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: elevatedButtonBackgroundColor,
+                    foregroundColor: elevatedButtonForegroundColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(
+                    _isSaving ? 'Сохранение...' : 'Продолжить',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ],
