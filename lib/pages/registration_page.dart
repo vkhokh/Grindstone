@@ -306,4 +306,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
       ],
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> d526210e176b03b67fcd9d5e97f3edddeb21d8ac
