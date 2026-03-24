@@ -1,4 +1,4 @@
-enum UserGender { male, female }
+﻿enum UserGender { male, female }
 
 extension UserGenderX on UserGender {
   String get storageValue {
@@ -37,18 +37,22 @@ class UserProfileData {
     required this.gender,
     required this.heightCm,
     required this.weightKg,
+    this.photoBase64,
   });
 
   final String name;
   final UserGender? gender;
   final double? heightCm;
   final double? weightKg;
+  // Optional base64-encoded avatar stored in Firestore.
+  final String? photoBase64;
 
   const UserProfileData.empty()
     : name = '',
       gender = null,
       heightCm = null,
-      weightKg = null;
+      weightKg = null,
+      photoBase64 = null;
 
   bool get isComplete {
     return name.trim().isNotEmpty &&
@@ -58,12 +62,18 @@ class UserProfileData {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = <String, dynamic>{
       'name': name,
       'gender': gender?.storageValue,
       'heightCm': heightCm,
       'weightKg': weightKg,
     };
+
+    if (photoBase64 != null) {
+      map['photoBase64'] = photoBase64;
+    }
+
+    return map;
   }
 
   factory UserProfileData.fromJson(Map<String, dynamic> json) {
@@ -72,6 +82,7 @@ class UserProfileData {
       gender: userGenderFromStorage(json['gender'] as String?),
       heightCm: _toDouble(json['heightCm']),
       weightKg: _toDouble(json['weightKg']),
+      photoBase64: json['photoBase64'] as String? ?? json['photoUrl'] as String?,
     );
   }
 
@@ -85,3 +96,4 @@ class UserProfileData {
     return null;
   }
 }
+

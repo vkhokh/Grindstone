@@ -409,9 +409,9 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: [
-              const Text(
-                'Упражнения',
+              children: [
+                const Text(
+                  'Упражнения',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -564,7 +564,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
       decoration: BoxDecoration(
-  color: Colors.transparent, // 👈 ВОТ ЭТО
+        color: Colors.transparent, // 👀 ВОТ ЭТО
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
@@ -712,10 +712,10 @@ Future<void> _handleBack() async {
     return;
   }
 
-  if (trainingName.isEmpty) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+    if (trainingName.isEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
         content: Text('Сначала введите название тренировки'),
       ),
     );

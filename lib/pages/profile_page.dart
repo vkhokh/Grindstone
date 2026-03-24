@@ -1,12 +1,16 @@
-import 'package:dp/colors.dart';
+﻿import 'package:dp/colors.dart';
 import 'package:dp/models/user_profile.dart';
 import 'package:dp/pages/current_training_page.dart';
 import 'package:dp/pages/login_page.dart';
 import 'package:dp/pages/main_page.dart';
+import 'package:dp/services/auth_service.dart';
 import 'package:dp/services/user_session_storage.dart';
 import 'package:dp/widgets/user_profile_form.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -25,6 +29,8 @@ class ProfilePageState extends State<ProfilePage> {
   bool _isLoading = true;
   bool _isEditing = false;
   bool _isSaving = false;
+  bool _isUploadingPhoto = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   String? _nameError;
   String? _heightError;
@@ -59,16 +65,35 @@ class ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadProfile() async {
-    final profile = await UserSessionStorage.loadProfile();
-    if (!mounted) return;
+    final cachedProfile = await UserSessionStorage.loadProfile();
+    if (mounted) {
+      setState(() {
+        _profile = cachedProfile;
+        _selectedGender = cachedProfile.gender;
+        _fillControllers(cachedProfile);
+        _isEditing = !cachedProfile.isComplete;
+      });
+    }
 
-    setState(() {
-      _profile = profile;
-      _selectedGender = profile.gender;
-      _fillControllers(profile);
-      _isEditing = !profile.isComplete;
-      _isLoading = false;
-    });
+    try {
+      final remoteProfile = await AuthService.instance.fetchProfile(cache: true);
+      if (remoteProfile != null && mounted) {
+        setState(() {
+          _profile = remoteProfile;
+          _selectedGender = remoteProfile.gender;
+          _fillControllers(remoteProfile);
+          _isEditing = !remoteProfile.isComplete;
+        });
+      }
+    } catch (_) {
+      // ignore remote fetch errors and keep cached data
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _fillControllers(UserProfileData profile) {
@@ -184,9 +209,24 @@ class ProfilePageState extends State<ProfilePage> {
       gender: _selectedGender,
       heightCm: height,
       weightKg: weight,
+      photoBase64: _profile.photoBase64,
     );
 
-    await UserSessionStorage.saveProfile(updatedProfile);
+    try {
+      await AuthService.instance.saveProfile(updatedProfile);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось сохранить профиль. Попробуйте снова.'),
+          ),
+        );
+        setState(() {
+          _isSaving = false;
+        });
+      }
+      return;
+    }
 
     if (!mounted) return;
 
@@ -222,7 +262,7 @@ class ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout() async {
-    await UserSessionStorage.logout();
+    await AuthService.instance.signOut();
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
@@ -241,6 +281,73 @@ class ProfilePageState extends State<ProfilePage> {
   String _formatMetric(double? value, String unit) {
     if (value == null) return 'Не указано';
     return '${_formatNumber(value)} $unit';
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    if (_isUploadingPhoto) return;
+
+    final pickedImage = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 900,
+      imageQuality: 75,
+    );
+
+    if (pickedImage == null) return;
+
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final bytes = await pickedImage.readAsBytes();
+
+      if (bytes.length > 700000) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Фото больше 0.7 МБ. Выберите файл поменьше.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final base64 = base64Encode(bytes);
+
+      final updatedProfile = UserProfileData(
+        name: _profile.name,
+        gender: _profile.gender,
+        heightCm: _profile.heightCm,
+        weightKg: _profile.weightKg,
+        photoBase64: base64,
+      );
+
+      await AuthService.instance.saveProfile(updatedProfile);
+
+      if (!mounted) return;
+
+      setState(() {
+        _profile = updatedProfile;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Фото профиля обновлено')),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось загрузить фото. Попробуйте снова.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
+    }
   }
 
   Future<void> _startNewTraining() async {
@@ -303,7 +410,7 @@ class ProfilePageState extends State<ProfilePage> {
         ),
         SizedBox(height: 6),
         Text(
-          'Здесь можно посмотреть и изменить информацию о себе',
+          'Здесь можно обновить и настроить данные о себе',
           style: TextStyle(
             fontSize: 15,
             color: _textSecondary,
@@ -336,25 +443,7 @@ class ProfilePageState extends State<ProfilePage> {
       ),
       child: Column(
         children: [
-          Container(
-            width: 104,
-            height: 104,
-            decoration: BoxDecoration(
-              color: _softTileColor,
-              shape: BoxShape.circle,
-            ),
-            child: Image.asset(
-              'assets/images/icon_user.png',
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(
-                  Icons.person_outline_rounded,
-                  size: 52,
-                  color: _textPrimary,
-                );
-              },
-            ),
-          ),
+          _buildAvatar(),
           const SizedBox(height: 18),
           Text(
             title,
@@ -369,8 +458,8 @@ class ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 8),
           Text(
             _isEditing
-                ? 'Эти данные отображаются в вашем профиле.'
-                : 'Ваши персональные данные и основные параметры.',
+                ? 'Можно обновить данные ниже.'
+                : 'Данные используются для персонализации тренировки.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 15,
@@ -380,6 +469,83 @@ class ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    Uint8List? photoBytes;
+    final encoded = _profile.photoBase64;
+    if (encoded != null && encoded.isNotEmpty) {
+      try {
+        photoBytes = base64Decode(encoded);
+      } catch (_) {
+        photoBytes = null;
+      }
+    }
+
+    Widget buildPlaceholder() {
+      return const Icon(
+        Icons.person_outline_rounded,
+        size: 52,
+        color: _textPrimary,
+      );
+    }
+
+    Widget buildImage() {
+      if (_isUploadingPhoto) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (photoBytes != null) {
+        return Image.memory(
+          photoBytes!,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => buildPlaceholder(),
+        );
+      }
+
+      return Image.asset(
+        'assets/images/icon_user.png',
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => buildPlaceholder(),
+      );
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 116,
+          height: 116,
+          decoration: const BoxDecoration(
+            color: _softTileColor,
+            shape: BoxShape.circle,
+          ),
+          padding: const EdgeInsets.all(6),
+          child: ClipOval(child: buildImage()),
+        ),
+        Positioned(
+          bottom: -2,
+          right: -2,
+          child: Material(
+            color: elevatedButtonBackgroundColor,
+            shape: const CircleBorder(),
+            child: IconButton(
+              onPressed: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+              icon: Icon(
+                _isUploadingPhoto
+                    ? Icons.hourglass_top_rounded
+                    : Icons.camera_alt_outlined,
+                size: 20,
+              ),
+              color: Colors.white,
+              tooltip: 'Загрузить фото',
+              constraints: const BoxConstraints.tightFor(width: 42, height: 42),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -745,3 +911,4 @@ class _ProfileInfoRow extends StatelessWidget {
     );
   }
 }
+

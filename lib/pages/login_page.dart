@@ -1,14 +1,10 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-import 'package:dp/pages/main_page.dart';
-=======
-import 'package:dp/pages/create_menu.dart';
->>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
-=======
 import 'package:dp/colors.dart';
+import 'package:dp/models/user_profile.dart';
 import 'package:dp/pages/main_page.dart';
 import 'package:dp/pages/registration_page.dart';
->>>>>>> f47928e7bc282a3de350f7946ac0373929267a4a
+import 'package:dp/pages/user_info_page.dart';
+import 'package:dp/services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -23,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
 
   bool obscurePassword = true;
+  bool _isSubmitting = false;
 
   String? emailError;
   String? passwordError;
@@ -66,15 +63,66 @@ class _LoginPageState extends State<LoginPage> {
     return newEmailError == null && newPasswordError == null;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_validateForm()) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const MainPage(),
-      ),
-    );
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await AuthService.instance.signIn(email: email, password: password);
+      UserProfileData? profile;
+      try {
+        profile = await AuthService.instance.fetchProfile(cache: true);
+      } catch (_) {
+        profile = null;
+      }
+
+      if (!mounted) return;
+
+      final nextPage =
+          profile == null || !profile.isComplete ? const UserInfoPage() : const MainPage();
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => nextPage),
+      );
+    } on FirebaseAuthException catch (e) {
+      final message = _mapFirebaseError(e);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Не удалось выполнить вход. Повторите попытку.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  String _mapFirebaseError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+      case 'invalid-credential':
+      case 'wrong-password':
+        return 'Неверный e-mail или пароль';
+      case 'invalid-email':
+        return 'Некорректный e-mail';
+      case 'user-disabled':
+        return 'Аккаунт отключен';
+      default:
+        return 'Ошибка входа: ${e.code}';
+    }
   }
 
   @override
@@ -108,25 +156,6 @@ class _LoginPageState extends State<LoginPage> {
                     color: textPrimary,
                   ),
                 ),
-<<<<<<< HEAD
-              ),
-              ElevatedButton(
-                onPressed: () {
-<<<<<<< HEAD
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MainPage()),
-                  );
-=======
-                  Navigator.push(context, MaterialPageRoute(builder:(context) => const TrainingScreen(),
-                  ));
->>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
-                },
-                style: ElevatedButton.styleFrom(fixedSize: Size(185, 60)),
-                child: Text('ВОЙТИ'),
-              ),
-            ],
-=======
                 const SizedBox(height: 8),
                 const Text(
                   'Создавай тренировки\nи отслеживай прогресс',
@@ -182,7 +211,7 @@ class _LoginPageState extends State<LoginPage> {
                 SizedBox(
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _submit,
+                    onPressed: _isSubmitting ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       elevation: 0,
@@ -190,14 +219,23 @@ class _LoginPageState extends State<LoginPage> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text(
-                      'ВОЙТИ',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black,
-                      ),
-                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.black,
+                            ),
+                          )
+                        : const Text(
+                            'Войти',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -237,7 +275,6 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 10),
               ],
             ),
->>>>>>> f47928e7bc282a3de350f7946ac0373929267a4a
           ),
         ),
       ),
@@ -309,3 +346,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
+
+

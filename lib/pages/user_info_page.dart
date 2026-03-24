@@ -1,9 +1,13 @@
-import 'package:dp/models/user_profile.dart';
+﻿import 'package:dp/models/user_profile.dart';
 import 'package:dp/pages/main_page.dart';
+import 'package:dp/services/auth_service.dart';
 import 'package:dp/services/user_session_storage.dart';
 import 'package:dp/widgets/user_profile_form.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:dp/colors.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class UserInfoPage extends StatefulWidget {
   const UserInfoPage({super.key});
@@ -19,6 +23,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
   UserGender? _selectedGender;
   bool _isSaving = false;
+  bool _isUploadingPhoto = false;
+  String? _photoBase64;
+  final ImagePicker _imagePicker = ImagePicker();
 
   String? _nameError;
   String? _heightError;
@@ -43,6 +50,59 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
   void _refreshState() {
     setState(() {});
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    if (_isUploadingPhoto) return;
+
+    final pickedImage = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 900,
+      imageQuality: 75,
+    );
+
+    if (pickedImage == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+
+    try {
+      final bytes = await pickedImage.readAsBytes();
+
+      if (bytes.length > 700000) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Фото больше 0.7 МБ. Выберите файл поменьше.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final encoded = base64Encode(bytes);
+
+      if (!mounted) return;
+
+      setState(() {
+        _photoBase64 = encoded;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Фото добавлено')),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось загрузить фото. Попробуйте снова.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
+    }
   }
 
   double? _parseHeight() {
@@ -113,6 +173,87 @@ class _UserInfoPageState extends State<UserInfoPage> {
         _parseWeight() != null;
   }
 
+  Widget _buildAvatar() {
+    Uint8List? photoBytes;
+    if (_photoBase64 != null && _photoBase64!.isNotEmpty) {
+      try {
+        photoBytes = base64Decode(_photoBase64!);
+      } catch (_) {
+        photoBytes = null;
+      }
+    }
+
+    Widget placeholder() => const Icon(
+          Icons.person_outline_rounded,
+          size: 64,
+          color: Colors.black87,
+        );
+
+    Widget avatarImage() {
+      if (_isUploadingPhoto) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (photoBytes != null) {
+        return Image.memory(
+          photoBytes!,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => placeholder(),
+        );
+      }
+
+      return Image.asset(
+        'assets/images/icon_user.png',
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => placeholder(),
+      );
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(10),
+          child: ClipOval(child: avatarImage()),
+        ),
+        Positioned(
+          bottom: -2,
+          right: -2,
+          child: Material(
+            color: elevatedButtonBackgroundColor,
+            shape: const CircleBorder(),
+            child: IconButton(
+              onPressed: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+              icon: Icon(
+                _isUploadingPhoto
+                    ? Icons.hourglass_top_rounded
+                    : Icons.camera_alt_outlined,
+                size: 20,
+              ),
+              color: Colors.white,
+              tooltip: 'Загрузить фото',
+              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _saveProfile() async {
     if (!_validateForm()) return;
 
@@ -121,14 +262,27 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
     setState(() => _isSaving = true);
 
-    await UserSessionStorage.saveProfile(
-      UserProfileData(
-        name: _nameController.text.trim(),
-        gender: _selectedGender!,
-        heightCm: height,
-        weightKg: weight,
-      ),
+    final profile = UserProfileData(
+      name: _nameController.text.trim(),
+      gender: _selectedGender!,
+      heightCm: height,
+      weightKg: weight,
+      photoBase64: _photoBase64,
     );
+
+    try {
+      await AuthService.instance.saveProfile(profile);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось сохранить профиль. Попробуйте снова.'),
+          ),
+        );
+        setState(() => _isSaving = false);
+      }
+      return;
+    }
 
     await UserSessionStorage.setLoggedIn(true);
 
@@ -150,10 +304,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Image.asset(
-                'assets/images/icon_user.png',
-                height: 140,
-              ),
+              _buildAvatar(),
               const SizedBox(height: 12),
               const Text(
                 'Расскажите о себе',
@@ -244,3 +395,4 @@ class _UserInfoPageState extends State<UserInfoPage> {
     );
   }
 }
+

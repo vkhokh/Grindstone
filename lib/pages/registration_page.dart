@@ -1,6 +1,8 @@
-import 'package:dp/colors.dart';
+﻿import 'package:dp/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:dp/pages/user_info_page.dart';
+import 'package:dp/services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -17,6 +19,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   bool obscurePassword = true;
   bool obscureConfirmPassword = true;
+  bool _isSubmitting = false;
 
   String? emailError;
   String? passwordError;
@@ -73,15 +76,60 @@ class _RegistrationPageState extends State<RegistrationPage> {
         newConfirmPasswordError == null;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_validateForm()) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const UserInfoPage(),
-      ),
-    );
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await AuthService.instance.signUp(email: email, password: password);
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const UserInfoPage(),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Registration error: ${e.code} ${e.message}');
+      final message = _mapFirebaseError(e);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      debugPrint('Registration error (unknown): $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Не удалось создать аккаунт. Попробуйте снова.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  String _mapFirebaseError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'Этот e-mail уже используется';
+      case 'invalid-email':
+        return 'Некорректный e-mail';
+      case 'weak-password':
+        return 'Пароль слишком простой';
+      default:
+        return e.message != null && e.message!.trim().isNotEmpty
+            ? 'Ошибка регистрации: ${e.message}'
+            : 'Ошибка регистрации: ${e.code}';
+    }
   }
 
   @override
@@ -198,7 +246,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 SizedBox(
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: _submit,
+                    onPressed: _isSubmitting ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: elevatedButtonBackgroundColor,
                       foregroundColor: elevatedButtonForegroundColor,
@@ -207,13 +255,22 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text(
-                      'ЗАРЕГИСТРИРОВАТЬСЯ',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Зарегистрироваться',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -307,5 +364,5 @@ class _RegistrationPageState extends State<RegistrationPage> {
     );
   }
 }
-}
+
 
