@@ -1,6 +1,14 @@
+<<<<<<< HEAD
+<<<<<<< HEAD
+import 'package:dp/pages/main_page.dart';
+=======
+import 'package:dp/pages/create_menu.dart';
+>>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
+=======
 import 'package:dp/colors.dart';
 import 'package:dp/pages/main_page.dart';
 import 'package:dp/pages/registration_page.dart';
+>>>>>>> f47928e7bc282a3de350f7946ac0373929267a4a
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -100,6 +108,25 @@ class _LoginPageState extends State<LoginPage> {
                     color: textPrimary,
                   ),
                 ),
+<<<<<<< HEAD
+              ),
+              ElevatedButton(
+                onPressed: () {
+<<<<<<< HEAD
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MainPage()),
+                  );
+=======
+                  Navigator.push(context, MaterialPageRoute(builder:(context) => const TrainingScreen(),
+                  ));
+>>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
+                },
+                style: ElevatedButton.styleFrom(fixedSize: Size(185, 60)),
+                child: Text('ВОЙТИ'),
+              ),
+            ],
+=======
                 const SizedBox(height: 8),
                 const Text(
                   'Создавай тренировки\nи отслеживай прогресс',
@@ -210,6 +237,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 10),
               ],
             ),
+>>>>>>> f47928e7bc282a3de350f7946ac0373929267a4a
           ),
         ),
       ),
