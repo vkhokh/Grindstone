@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import 'package:dp/pages/main_page.dart';
+=======
+import 'package:dp/pages/create_menu.dart';
+>>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -67,10 +71,15 @@ class LoginPageState extends State<LoginPage> {
               ),
               ElevatedButton(
                 onPressed: () {
+<<<<<<< HEAD
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const MainPage()),
                   );
+=======
+                  Navigator.push(context, MaterialPageRoute(builder:(context) => const TrainingScreen(),
+                  ));
+>>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
                 },
                 style: ElevatedButton.styleFrom(fixedSize: Size(185, 60)),
                 child: Text('ВОЙТИ'),
