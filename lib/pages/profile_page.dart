@@ -634,6 +634,31 @@ class ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: OutlinedButton.icon(
+            onPressed: _isSaving ? null : _logout,
+            icon: const Icon(Icons.logout),
+            label: const Text(
+              'Выйти из аккаунта',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: _textPrimary,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _textPrimary,
+              side: BorderSide(color: _borderSoft),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+        ),
         if (_profile.isComplete) ...[
           const SizedBox(height: 12),
           TextButton(

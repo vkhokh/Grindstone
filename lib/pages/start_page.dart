@@ -1,5 +1,4 @@
 import 'package:dp/colors.dart';
-import 'package:dp/models/user_profile.dart';
 import 'package:dp/pages/login_page.dart';
 import 'package:dp/pages/main_page.dart';
 import 'package:dp/pages/user_info_page.dart';
@@ -28,14 +27,15 @@ class StartPageState extends State<StartPage> {
   Future<void> _prepareNavigation() async {
     final user = FirebaseAuth.instance.currentUser;
     final hasSession = user != null;
-    UserProfileData? profile;
+    var needsProfileSetup = false;
 
     if (hasSession) {
       try {
-        profile = await AuthService.instance.fetchProfile(cache: true);
+        await AuthService.instance.fetchProfile(cache: true);
       } catch (_) {
-        // ignore fetch errors; allow app to continue
+        // Keep startup flow working even if profile sync fails temporarily.
       }
+      needsProfileSetup = await UserSessionStorage.needsProfileSetup();
       await UserSessionStorage.setLoggedIn(true);
     } else {
       await UserSessionStorage.logout();
@@ -47,7 +47,7 @@ class StartPageState extends State<StartPage> {
     setState(() {
       if (!hasSession) {
         _nextPage = const LoginPage();
-      } else if (profile == null || !profile.isComplete) {
+      } else if (needsProfileSetup) {
         _nextPage = const UserInfoPage();
       } else {
         _nextPage = const MainPage();
@@ -82,3 +82,4 @@ class StartPageState extends State<StartPage> {
     );
   }
 }
+

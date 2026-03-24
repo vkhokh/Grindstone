@@ -27,6 +27,7 @@ class AuthService {
     );
 
     await UserSessionStorage.setLoggedIn(true);
+    await UserSessionStorage.setNeedsProfileSetup(true);
     return credential;
   }
 
@@ -40,6 +41,7 @@ class AuthService {
     );
 
     await UserSessionStorage.setLoggedIn(true);
+    await UserSessionStorage.setNeedsProfileSetup(false);
     return credential;
   }
 
@@ -74,6 +76,7 @@ class AuthService {
 
     await UserSessionStorage.saveProfile(ensuredProfile);
     await UserSessionStorage.setLoggedIn(true);
+    await UserSessionStorage.setNeedsProfileSetup(false);
   }
 
   Future<UserProfileData?> fetchProfile({bool cache = true}) async {
@@ -91,6 +94,7 @@ class AuthService {
       if (cache) {
         await UserSessionStorage.saveProfile(profile);
         await UserSessionStorage.setLoggedIn(true);
+        await UserSessionStorage.setNeedsProfileSetup(!profile.isComplete);
       }
       return profile;
     } on FirebaseException {
@@ -112,3 +116,4 @@ class AuthService {
     );
   }
 }
+

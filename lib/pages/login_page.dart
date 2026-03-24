@@ -1,9 +1,9 @@
 import 'package:dp/colors.dart';
-import 'package:dp/models/user_profile.dart';
 import 'package:dp/pages/main_page.dart';
 import 'package:dp/pages/registration_page.dart';
 import 'package:dp/pages/user_info_page.dart';
 import 'package:dp/services/auth_service.dart';
+import 'package:dp/services/user_session_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -74,17 +74,18 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       await AuthService.instance.signIn(email: email, password: password);
-      UserProfileData? profile;
       try {
-        profile = await AuthService.instance.fetchProfile(cache: true);
+        await AuthService.instance.fetchProfile(cache: true);
       } catch (_) {
-        profile = null;
+        // Keep login flow working even if profile sync fails temporarily.
       }
+
+      final needsProfileSetup = await UserSessionStorage.needsProfileSetup();
 
       if (!mounted) return;
 
       final nextPage =
-          profile == null || !profile.isComplete ? const UserInfoPage() : const MainPage();
+          needsProfileSetup ? const UserInfoPage() : const MainPage();
 
       Navigator.pushReplacement(
         context,
@@ -346,6 +347,4 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
-
-
 

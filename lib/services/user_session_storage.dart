@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class UserSessionStorage {
   static const String _profileKey = 'user_profile';
   static const String _isLoggedInKey = 'is_logged_in';
+  static const String _needsProfileSetupKey = 'needs_profile_setup';
 
   static Future<UserProfileData> loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
@@ -32,6 +33,16 @@ class UserSessionStorage {
     await prefs.setBool(_isLoggedInKey, value);
   }
 
+  static Future<void> setNeedsProfileSetup(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_needsProfileSetupKey, value);
+  }
+
+  static Future<bool> needsProfileSetup() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_needsProfileSetupKey) ?? false;
+  }
+
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_isLoggedInKey) ?? false;
@@ -41,6 +52,8 @@ class UserSessionStorage {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_profileKey);
     await prefs.remove(_isLoggedInKey);
+    await prefs.remove(_needsProfileSetupKey);
     await prefs.remove('current_training');
   }
 }
+
