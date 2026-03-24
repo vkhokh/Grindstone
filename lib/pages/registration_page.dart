@@ -1,36 +1,32 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-import 'package:dp/pages/main_page.dart';
-=======
-import 'package:dp/pages/create_menu.dart';
->>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
-=======
 import 'package:dp/colors.dart';
-import 'package:dp/pages/main_page.dart';
-import 'package:dp/pages/registration_page.dart';
->>>>>>> f47928e7bc282a3de350f7946ac0373929267a4a
 import 'package:flutter/material.dart';
+import 'package:dp/pages/user_info_page.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class RegistrationPage extends StatefulWidget {
+  const RegistrationPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegistrationPage> createState() => _RegistrationPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   bool obscurePassword = true;
+  bool obscureConfirmPassword = true;
 
   String? emailError;
   String? passwordError;
+  String? confirmPasswordError;
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -42,9 +38,11 @@ class _LoginPageState extends State<LoginPage> {
   bool _validateForm() {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
 
     String? newEmailError;
     String? newPasswordError;
+    String? newConfirmPasswordError;
 
     if (email.isEmpty) {
       newEmailError = 'Введите почту';
@@ -58,12 +56,21 @@ class _LoginPageState extends State<LoginPage> {
       newPasswordError = 'Пароль должен быть не короче 6 символов';
     }
 
+    if (confirmPassword.isEmpty) {
+      newConfirmPasswordError = 'Повторите пароль';
+    } else if (password != confirmPassword) {
+      newConfirmPasswordError = 'Пароли не совпадают';
+    }
+
     setState(() {
       emailError = newEmailError;
       passwordError = newPasswordError;
+      confirmPasswordError = newConfirmPasswordError;
     });
 
-    return newEmailError == null && newPasswordError == null;
+    return newEmailError == null &&
+        newPasswordError == null &&
+        newConfirmPasswordError == null;
   }
 
   void _submit() {
@@ -72,14 +79,13 @@ class _LoginPageState extends State<LoginPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const MainPage(),
+        builder: (context) => const UserInfoPage(),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFFF5A623);
     const Color textPrimary = Color(0xFF111827);
 
     return Scaffold(
@@ -98,7 +104,7 @@ class _LoginPageState extends State<LoginPage> {
                     height: 340,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 0),
                 const Text(
                   'GRINDSTONE',
                   textAlign: TextAlign.center,
@@ -108,28 +114,9 @@ class _LoginPageState extends State<LoginPage> {
                     color: textPrimary,
                   ),
                 ),
-<<<<<<< HEAD
-              ),
-              ElevatedButton(
-                onPressed: () {
-<<<<<<< HEAD
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MainPage()),
-                  );
-=======
-                  Navigator.push(context, MaterialPageRoute(builder:(context) => const TrainingScreen(),
-                  ));
->>>>>>> 501f3efad1c0acb174a65ceb780141ade399a91d
-                },
-                style: ElevatedButton.styleFrom(fixedSize: Size(185, 60)),
-                child: Text('ВОЙТИ'),
-              ),
-            ],
-=======
                 const SizedBox(height: 8),
                 const Text(
-                  'Создавай тренировки\nи отслеживай прогресс',
+                  'Создай аккаунт и начни\nотслеживать свои тренировки',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
@@ -165,6 +152,7 @@ class _LoginPageState extends State<LoginPage> {
                     }
                   },
                   suffixIcon: IconButton(
+                    splashRadius: 20,
                     onPressed: () {
                       setState(() {
                         obscurePassword = !obscurePassword;
@@ -178,66 +166,76 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 14),
+                _buildInputField(
+                  controller: confirmPasswordController,
+                  hintText: 'Повторите пароль',
+                  obscureText: obscureConfirmPassword,
+                  errorText: confirmPasswordError,
+                  onChanged: (_) {
+                    if (confirmPasswordError != null) {
+                      setState(() {
+                        confirmPasswordError = null;
+                      });
+                    }
+                  },
+                  suffixIcon: IconButton(
+                    splashRadius: 20,
+                    onPressed: () {
+                      setState(() {
+                        obscureConfirmPassword = !obscureConfirmPassword;
+                      });
+                    },
+                    icon: Icon(
+                      obscureConfirmPassword
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      color: hintTextForegroundColor,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 SizedBox(
                   height: 54,
                   child: ElevatedButton(
                     onPressed: _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
+                      backgroundColor: elevatedButtonBackgroundColor,
+                      foregroundColor: elevatedButtonForegroundColor,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     child: const Text(
-                      'ВОЙТИ',
+                      'ЗАРЕГИСТРИРОВАТЬСЯ',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
-                        color: Colors.black,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 18),
                 Center(
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    children: [
-                      const Text(
-                        'Ещё нет аккаунта? ',
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 0, 0, 0),
-                          fontSize: 16,
-                        ),
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Уже есть аккаунт? Войти',
+                      style: TextStyle(
+                        color: Color(0xFF111827),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
                       ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegistrationPage(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Зарегистрироваться',
-                          style: TextStyle(
-                            color: textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
               ],
             ),
->>>>>>> f47928e7bc282a3de350f7946ac0373929267a4a
           ),
         ),
       ),

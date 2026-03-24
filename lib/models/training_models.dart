@@ -40,19 +40,27 @@ class Exercise {
 
 class Training {
   final String name;
-  final Timer timer;
+  final String description; // ← ДОБАВЛЕНО
   final bool hasTraining;
 
-  Training({required this.name, required this.timer, this.hasTraining = true});
+  Training({
+    required this.name,
+    required this.description, // ← ДОБАВЛЕНО 
+    this.hasTraining = true
+  });
 
   Map<String, dynamic> toJson() {
-    return {'name': name, 'timer': timer.toJson(), 'hasTraining': hasTraining};
+    return {
+      'name': name,
+      'description': description, // ← ДОБАВЛЕНО
+      'hasTraining': hasTraining
+    };
   }
 
   static Training fromJson(Map<String, dynamic> json) {
     return Training(
       name: json['name'],
-      timer: Timer.fromJson(json['timer']),
+      description: json['description'] ?? '', // ← ДОБАВЛЕНО
       hasTraining: json['hasTraining'] ?? true,
     );
   }
