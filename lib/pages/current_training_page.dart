@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/training_models.dart';
+import '../services/workout_archive_service.dart';
 
 class CurrentWorkoutScreen extends StatefulWidget {
   const CurrentWorkoutScreen({super.key});
@@ -24,6 +25,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
   final FocusNode _trainingNameFocusNode = FocusNode();
   final FocusNode _trainingDescriptionFocusNode = FocusNode();
+
+  bool _isFinishing = false;
 
   static const Color _screenBackground = Color(0xFFF7F3EA);
   static const Color _cardColor = Color(0xFFFFFBF5);
@@ -69,7 +72,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
         _trainingNameController.text = fullData.basicInfo.name;
         _trainingDescriptionController.text =
-            fullData.basicInfo.description ?? '';
+            fullData.basicInfo.description;
 
         setState(() {
           exercises = fullData.exercises;
@@ -131,12 +134,93 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     _saveCurrentTrainingState();
   }
 
-  Future<void> _finishTraining() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('current_training');
+  FullTrainingData? _buildTrainingDataForArchive() {
+    final trainingName = _trainingNameController.text.trim();
+    if (trainingName.isEmpty) {
+      return null;
+    }
 
-    if (!mounted) return;
-    Navigator.pop(context);
+    return FullTrainingData(
+      basicInfo: Training(
+        name: trainingName,
+        description: _trainingDescriptionController.text.trim(),
+        hasTraining: true,
+      ),
+      exercises: exercises
+          .map(
+            (exercise) => Exercise(
+              name: exercise.name,
+              approaches: exercise.approaches
+                  .map(
+                    (approach) => Approach(
+                      reps: approach.reps,
+                      weight: approach.weight,
+                    ),
+                  )
+                  .toList(),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Future<void> _finishTraining() async {
+    if (_isFinishing) return;
+
+    final hasAnyContent =
+        _trainingNameController.text.trim().isNotEmpty ||
+        _trainingDescriptionController.text.trim().isNotEmpty ||
+        exercises.isNotEmpty;
+
+    if (!hasAnyContent) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('current_training');
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      return;
+    }
+
+    final training = _buildTrainingDataForArchive();
+    if (training == null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Сначала введите название тренировки'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isFinishing = true;
+    });
+
+    try {
+      await WorkoutArchiveService.instance.archiveTraining(training);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('current_training');
+
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Не удалось сохранить тренировку в архив. Попробуйте снова.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isFinishing = false;
+        });
+      }
+    }
   }
 
   Future<void> _openExercise(Exercise exercise) async {
@@ -580,7 +664,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-  onPressed: _finishTraining,
+  onPressed: _isFinishing ? null : _finishTraining,
   style: OutlinedButton.styleFrom(
     backgroundColor: Colors.white,
     foregroundColor: _textPrimary,
@@ -590,9 +674,9 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
       borderRadius: BorderRadius.circular(16),
     ),
   ),
-                child: const Text(
-                  'Завершить',
-                  style: TextStyle(
+                child: Text(
+                  _isFinishing ? 'Сохраняем...' : 'Завершить',
+                  style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
@@ -603,7 +687,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
             Expanded(
               flex: 2,
               child: ElevatedButton.icon(
-  onPressed: _openExerciseBottomSheet,
+  onPressed: _isFinishing ? null : _openExerciseBottomSheet,
   style: ElevatedButton.styleFrom(
     backgroundColor: elevatedButtonBackgroundColor,
     foregroundColor: elevatedButtonForegroundColor,

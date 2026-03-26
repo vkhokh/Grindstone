@@ -1,8 +1,9 @@
-﻿import 'package:dp/colors.dart';
+import 'package:dp/colors.dart';
 import 'package:dp/models/user_profile.dart';
 import 'package:dp/pages/current_training_page.dart';
 import 'package:dp/pages/login_page.dart';
 import 'package:dp/pages/main_page.dart';
+import 'package:dp/pages/training_archive_page.dart';
 import 'package:dp/services/auth_service.dart';
 import 'package:dp/services/user_session_storage.dart';
 import 'package:dp/widgets/user_profile_form.dart';
@@ -804,7 +805,14 @@ class ProfilePageState extends State<ProfilePage> {
                 icon: Icons.view_list_rounded,
                 label: 'Тренировки',
                 isActive: false,
-                onTap: () {},
+                onTap: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TrainingArchivePage(),
+                    ),
+                  );
+                },
               ),
             ),
             _buildFloatingButton(),
@@ -936,4 +944,3 @@ class _ProfileInfoRow extends StatelessWidget {
     );
   }
 }
-
