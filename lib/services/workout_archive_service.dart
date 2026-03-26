@@ -52,6 +52,18 @@ class WorkoutArchiveService {
     });
   }
 
+  Future<void> deleteTraining(String trainingId) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No signed in user',
+      );
+    }
+
+    await _archiveCollection(user.uid).doc(trainingId).delete();
+  }
+
   CollectionReference<Map<String, dynamic>> _archiveCollection(String uid) {
     return _firestore.collection('users').doc(uid).collection('workoutArchive');
   }

@@ -50,6 +50,78 @@ class _TrainingArchivePageState extends State<TrainingArchivePage> {
     );
   }
 
+  Future<void> _confirmDeleteTraining(ArchivedTraining archivedTraining) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text('Удалить тренировку?'),
+          content: Text(
+            'Тренировка "${archivedTraining.name}" будет удалена из архива.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE15241),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Удалить'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      await WorkoutArchiveService.instance.deleteTraining(archivedTraining.id);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Тренировка удалена из архива')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Не удалось удалить тренировку. Попробуйте снова.'),
+        ),
+      );
+    }
+  }
+
+  Widget _buildCardActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: _softTileColor,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: color),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -293,17 +365,10 @@ class _TrainingArchivePageState extends State<TrainingArchivePage> {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: _softTileColor,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.chevron_right_rounded,
-                    color: _textPrimary,
-                  ),
+                _buildCardActionButton(
+                  icon: Icons.delete_outline_rounded,
+                  color: const Color(0xFFE15241),
+                  onTap: () => _confirmDeleteTraining(archivedTraining),
                 ),
               ],
             ),
