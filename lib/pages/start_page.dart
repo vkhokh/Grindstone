@@ -82,4 +82,3 @@ class StartPageState extends State<StartPage> {
     );
   }
 }
-
