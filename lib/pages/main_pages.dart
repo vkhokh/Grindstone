@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:dp/colors.dart';
 import 'package:dp/pages/current_training_page.dart';
 import 'package:dp/pages/profile_page.dart';
-import 'package:dp/pages/training_archive_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -639,14 +638,7 @@ Widget _buildQuickActions() {
                 icon: Icons.view_list_rounded,
                 label: 'Тренировки',
                 isActive: false,
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TrainingArchivePage(),
-                    ),
-                  );
-                },
+                onTap: () {},
               ),
             ),
             _buildFloatingButton(),
@@ -664,7 +656,7 @@ Widget _buildQuickActions() {
                 label: 'Профиль',
                 isActive: false,
                 onTap: () {
-                  Navigator.pushReplacement(
+                  Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ProfilePage(),

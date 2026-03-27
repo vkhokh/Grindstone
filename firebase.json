@@ -1,0 +1,24 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "grindstone-8be1a",
+          "appId": "1:361665547460:android:8ba64b85965a38e2354d91",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "grindstone-8be1a",
+          "configurations": {
+            "android": "1:361665547460:android:8ba64b85965a38e2354d91"
+          }
+        }
+      }
+    }
+  }
+}

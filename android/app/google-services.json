@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "361665547460",
+    "project_id": "grindstone-8be1a",
+    "storage_bucket": "grindstone-8be1a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361665547460:android:8ba64b85965a38e2354d91",
+        "android_client_info": {
+          "package_name": "com.example.dp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmjhNktpuXPn2WVgB0fyLxbbsrCgTpJZI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361665547460:android:466ee42ee4d0466b354d91",
+        "android_client_info": {
+          "package_name": "com.example.grindstone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmjhNktpuXPn2WVgB0fyLxbbsrCgTpJZI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

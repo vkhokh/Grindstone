@@ -1,6 +1,11 @@
-import 'package:dp/pages/login_page.dart';
-import 'package:flutter/material.dart';
 import 'package:dp/colors.dart';
+import 'package:dp/pages/login_page.dart';
+import 'package:dp/pages/main_page.dart';
+import 'package:dp/pages/user_info_page.dart';
+import 'package:dp/services/auth_service.dart';
+import 'package:dp/services/user_session_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -11,14 +16,43 @@ class StartPage extends StatefulWidget {
 
 class StartPageState extends State<StartPage> {
   double _opacity = 1.0;
+  Widget? _nextPage;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        _opacity = 0.0;
-      });
+    _prepareNavigation();
+  }
+
+  Future<void> _prepareNavigation() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final hasSession = user != null;
+    var needsProfileSetup = false;
+
+    if (hasSession) {
+      try {
+        await AuthService.instance.fetchProfile(cache: true);
+      } catch (_) {
+        // Keep startup flow working even if profile sync fails temporarily.
+      }
+      needsProfileSetup = await UserSessionStorage.needsProfileSetup();
+      await UserSessionStorage.setLoggedIn(true);
+    } else {
+      await UserSessionStorage.logout();
+    }
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    setState(() {
+      if (!hasSession) {
+        _nextPage = const LoginPage();
+      } else if (needsProfileSetup) {
+        _nextPage = const UserInfoPage();
+      } else {
+        _nextPage = const MainPage();
+      }
+      _opacity = 0.0;
     });
   }
 
@@ -29,22 +63,23 @@ class StartPageState extends State<StartPage> {
       body: AnimatedOpacity(
         opacity: _opacity,
         duration: const Duration(milliseconds: 1000),
+        onEnd: () {
+          if (_opacity == 0.0 && _nextPage != null) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => _nextPage!),
+            );
+          }
+        },
         child: Padding(
-          padding: EdgeInsetsGeometry.symmetric(horizontal: 50, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 10),
           child: Image.asset(
             'assets/images/logo.png',
             height: double.infinity,
             fit: BoxFit.contain,
           ),
         ),
-        onEnd: () {
-          if (_opacity == 0.0) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const LoginPage()),
-            );
-          }
-        },
       ),
     );
   }
 }
+
