@@ -45,6 +45,12 @@ class AuthService {
     return credential;
   }
 
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    await _auth.sendPasswordResetEmail(
+      email: email.trim(),
+    );
+  }
+
   Future<void> signOut() async {
     await _auth.signOut();
     await UserSessionStorage.logout();
@@ -98,15 +104,15 @@ class AuthService {
       }
       return profile;
     } on FirebaseException {
-      // Treat fetch failures (e.g., permissions/network) as "no profile yet"
       return null;
     }
   }
 
   UserProfileData _withDefaultAvatar(UserProfileData profile) {
-    final hasPhoto = profile.photoBase64 != null &&
-        profile.photoBase64!.isNotEmpty;
+    final hasPhoto =
+        profile.photoBase64 != null && profile.photoBase64!.isNotEmpty;
     if (hasPhoto) return profile;
+
     return UserProfileData(
       name: profile.name,
       gender: profile.gender,
@@ -116,4 +122,3 @@ class AuthService {
     );
   }
 }
-
