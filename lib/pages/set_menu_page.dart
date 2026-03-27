@@ -23,7 +23,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
 
   return reps != null &&
       reps >= 1 &&
-      reps <= 100 &&
+      reps <= 1000 &&
       weight != null &&
       weight >= 0.5 &&
       weight <= 500;
@@ -103,7 +103,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     } else if (reps == null) {
       newRepsError = 'Повторения должны быть целым числом';
     } else if (reps < 1 || reps > 1000) {
-      newRepsError = 'Повторения должны быть от 1 до 100';
+      newRepsError = 'Повторения должны быть от 1 до 1000';
     }
 
     if (_weightController.text.trim().isEmpty) {
