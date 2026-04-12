@@ -1,14 +1,19 @@
-import 'package:flutter/material.dart';
 import 'package:dp/colors.dart';
+import 'package:dp/services/user_session_storage.dart';
+import 'package:flutter/material.dart';
+
+import '../models/exercise_catalog_item.dart';
 import '../models/training_models.dart';
 
 class SetMenuScreen extends StatefulWidget {
   final String exerciseName;
+  final ExerciseTrackingType trackingType;
   final List<Approach> initialApproaches;
 
   const SetMenuScreen({
     super.key,
     required this.exerciseName,
+    required this.trackingType,
     this.initialApproaches = const [],
   });
 
@@ -17,43 +22,56 @@ class SetMenuScreen extends StatefulWidget {
 }
 
 class _SetMenuScreenState extends State<SetMenuScreen> {
-  bool get _isApproachFormValid {
-  final reps = _parseReps();
-  final weight = _parseWeight();
-
-  return reps != null &&
-      reps >= 1 &&
-      reps <= 1000 &&
-      weight != null &&
-      weight >= 0.5 &&
-      weight <= 500;
-}
   final _repsController = TextEditingController();
   final _weightController = TextEditingController();
+  final _additionalWeightController = TextEditingController();
+  final _minutesController = TextEditingController();
+  final _secondsController = TextEditingController();
 
   List<Approach> _approaches = [];
   int? _editingIndex;
 
+  double? _profileWeightKg;
+  bool _isLoadingProfile = true;
+
   String? _repsError;
   String? _weightError;
+  String? _additionalWeightError;
+  String? _durationError;
 
   static const Color _textPrimary = Color(0xFF111827);
   static const Color _textSecondary = Color(0xFF6B7280);
   static const Color _cardBorder = Color(0xFFE7E5E4);
   static const Color _cardColor = Colors.white;
   static const Color _softColor = Color(0xFFFFFBF5);
+  static const Color _dangerColor = Color(0xFFEF4444);
+  static const Color _hintTextColor = Color(0xFF9CA3AF);
 
   @override
   void initState() {
     super.initState();
     _approaches = List.from(widget.initialApproaches);
+    _loadProfileWeight();
   }
 
   @override
   void dispose() {
     _repsController.dispose();
     _weightController.dispose();
+    _additionalWeightController.dispose();
+    _minutesController.dispose();
+    _secondsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProfileWeight() async {
+    final profile = await UserSessionStorage.loadProfile();
+    if (!mounted) return;
+
+    setState(() {
+      _profileWeightKg = profile.weightKg;
+      _isLoadingProfile = false;
+    });
   }
 
   void _returnResult() {
@@ -62,21 +80,51 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
 
   void _openAddApproachDialog() {
     _editingIndex = null;
-    _repsController.clear();
-    _weightController.clear();
-    _repsError = null;
-    _weightError = null;
+    _clearFields();
     _showApproachBottomSheet();
   }
 
   void _openEditApproachDialog(int index) {
     _editingIndex = index;
     final approach = _approaches[index];
-    _repsController.text = approach.reps;
-    _weightController.text = approach.weight;
+
+    _repsController.text = approach.reps?.toString() ?? '';
+    _weightController.text = _formatDouble(approach.weightKg);
+    _additionalWeightController.text =
+        _formatDouble(approach.additionalWeightKg);
+
+    final totalSeconds = approach.durationSeconds ?? 0;
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    _minutesController.text = minutes == 0 ? '' : minutes.toString();
+    _secondsController.text = seconds == 0 ? '' : seconds.toString();
+
+    _clearErrors();
+    _showApproachBottomSheet();
+  }
+
+  void _clearFields() {
+    _repsController.clear();
+    _weightController.clear();
+    _additionalWeightController.clear();
+    _minutesController.clear();
+    _secondsController.clear();
+    _clearErrors();
+  }
+
+  void _clearErrors() {
     _repsError = null;
     _weightError = null;
-    _showApproachBottomSheet();
+    _additionalWeightError = null;
+    _durationError = null;
+  }
+
+  String _formatDouble(double? value) {
+    if (value == null) return '';
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+    return value.toString();
   }
 
   int? _parseReps() {
@@ -91,35 +139,220 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     return double.tryParse(value);
   }
 
-  bool _validateApproachForm(StateSetter modalSetState) {
-    final reps = _parseReps();
-    final weight = _parseWeight();
+  double? _parseAdditionalWeight() {
+    final value = _additionalWeightController.text.trim().replaceAll(',', '.');
+    if (value.isEmpty) return 0;
+    return double.tryParse(value);
+  }
 
-    String? newRepsError;
-    String? newWeightError;
+  int _parseDurationSeconds() {
+    final minutes = int.tryParse(_minutesController.text.trim()) ?? 0;
+    final seconds = int.tryParse(_secondsController.text.trim()) ?? 0;
+    return (minutes * 60) + seconds;
+  }
 
-    if (_repsController.text.trim().isEmpty) {
-      newRepsError = 'Введите количество повторений';
-    } else if (reps == null) {
-      newRepsError = 'Повторения должны быть целым числом';
-    } else if (reps < 1 || reps > 1000) {
-      newRepsError = 'Повторения должны быть от 1 до 1000';
+  bool get _isApproachFormValid {
+    if (widget.trackingType == ExerciseTrackingType.weightReps) {
+      final reps = _parseReps();
+      final weight = _parseWeight();
+      return reps != null &&
+          reps >= 1 &&
+          reps <= 1000 &&
+          weight != null &&
+          weight >= 0.5 &&
+          weight <= 500;
     }
 
-    if (_weightController.text.trim().isEmpty) {
-      newWeightError = 'Введите вес';
-    } else if (weight == null) {
-      newWeightError = 'Введите корректный вес';
-    } else if (weight < 0.5 || weight > 500) {
-      newWeightError = 'Вес должен быть от 0.5 до 500 кг';
+    if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
+      final reps = _parseReps();
+      final additionalWeight = _parseAdditionalWeight();
+      return reps != null &&
+          reps >= 1 &&
+          reps <= 1000 &&
+          additionalWeight != null &&
+          additionalWeight >= 0 &&
+          additionalWeight <= 500 &&
+          _profileWeightKg != null;
+    }
+
+    final totalSeconds = _parseDurationSeconds();
+    return totalSeconds > 0 && totalSeconds <= 24 * 60 * 60;
+  }
+
+  bool _validateApproachForm(StateSetter modalSetState) {
+    String? newRepsError;
+    String? newWeightError;
+    String? newAdditionalWeightError;
+    String? newDurationError;
+
+    if (widget.trackingType == ExerciseTrackingType.weightReps) {
+      final reps = _parseReps();
+      final weight = _parseWeight();
+
+      if (_repsController.text.trim().isEmpty) {
+        newRepsError = 'Введите количество повторений';
+      } else if (reps == null) {
+        newRepsError = 'Повторения должны быть целым числом';
+      } else if (reps < 1 || reps > 1000) {
+        newRepsError = 'Повторения должны быть от 1 до 1000';
+      }
+
+      if (_weightController.text.trim().isEmpty) {
+        newWeightError = 'Введите вес';
+      } else if (weight == null) {
+        newWeightError = 'Введите корректный вес';
+      } else if (weight < 0.5 || weight > 500) {
+        newWeightError = 'Вес должен быть от 0.5 до 500 кг';
+      }
+    }
+
+    if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
+      final reps = _parseReps();
+      final additionalWeight = _parseAdditionalWeight();
+
+      if (_repsController.text.trim().isEmpty) {
+        newRepsError = 'Введите количество повторений';
+      } else if (reps == null) {
+        newRepsError = 'Повторения должны быть целым числом';
+      } else if (reps < 1 || reps > 1000) {
+        newRepsError = 'Повторения должны быть от 1 до 1000';
+      }
+
+      if (additionalWeight == null) {
+        newAdditionalWeightError = 'Введите корректный дополнительный вес';
+      } else if (additionalWeight < 0 || additionalWeight > 500) {
+        newAdditionalWeightError = 'Доп. вес должен быть от 0 до 500 кг';
+      }
+
+      if (_profileWeightKg == null) {
+        newWeightError = 'В профиле не указан вес пользователя';
+      }
+    }
+
+    if (widget.trackingType == ExerciseTrackingType.duration) {
+      final totalSeconds = _parseDurationSeconds();
+
+      if (totalSeconds <= 0) {
+        newDurationError = 'Введите время больше 0 секунд';
+      } else if (totalSeconds > 24 * 60 * 60) {
+        newDurationError = 'Слишком большое время';
+      }
     }
 
     modalSetState(() {
       _repsError = newRepsError;
       _weightError = newWeightError;
+      _additionalWeightError = newAdditionalWeightError;
+      _durationError = newDurationError;
     });
 
-    return newRepsError == null && newWeightError == null;
+    return newRepsError == null &&
+        newWeightError == null &&
+        newAdditionalWeightError == null &&
+        newDurationError == null;
+  }
+
+  void _addApproach() {
+    late final Approach approach;
+
+    if (widget.trackingType == ExerciseTrackingType.weightReps) {
+      approach = Approach(
+        reps: _parseReps(),
+        weightKg: _parseWeight(),
+      );
+    } else if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
+      approach = Approach(
+        reps: _parseReps(),
+        isBodyweight: true,
+        bodyweightKgSnapshot: _profileWeightKg,
+        additionalWeightKg: _parseAdditionalWeight(),
+      );
+    } else {
+      approach = Approach(
+        durationSeconds: _parseDurationSeconds(),
+      );
+    }
+
+    setState(() {
+      _approaches.add(approach);
+    });
+  }
+
+  void _updateApproach(int index) {
+    late final Approach approach;
+
+    if (widget.trackingType == ExerciseTrackingType.weightReps) {
+      approach = Approach(
+        reps: _parseReps(),
+        weightKg: _parseWeight(),
+      );
+    } else if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
+      approach = Approach(
+        reps: _parseReps(),
+        isBodyweight: true,
+        bodyweightKgSnapshot: _profileWeightKg,
+        additionalWeightKg: _parseAdditionalWeight(),
+      );
+    } else {
+      approach = Approach(
+        durationSeconds: _parseDurationSeconds(),
+      );
+    }
+
+    setState(() {
+      _approaches[index] = approach;
+    });
+  }
+
+  void _deleteApproach(int index) {
+    setState(() {
+      _approaches.removeAt(index);
+    });
+  }
+
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    final mm = minutes.toString().padLeft(2, '0');
+    final ss = remainingSeconds.toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
+
+  String _approachSubtitle(Approach approach) {
+    if (widget.trackingType == ExerciseTrackingType.weightReps) {
+      return '${approach.reps ?? 0} повторений · ${_formatDouble(approach.weightKg)} кг';
+    }
+
+    if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
+      final body = _formatDouble(approach.bodyweightKgSnapshot);
+      final add = _formatDouble(approach.additionalWeightKg ?? 0);
+      return '${approach.reps ?? 0} повторений · вес тела $body кг · доп. $add кг';
+    }
+
+    return _formatDuration(approach.durationSeconds ?? 0);
+  }
+
+  String _sheetSubtitle() {
+    switch (widget.trackingType) {
+      case ExerciseTrackingType.weightReps:
+        return 'Укажи количество повторений и рабочий вес';
+      case ExerciseTrackingType.bodyweightReps:
+        return 'Укажи повторения, вес тела подтянется из профиля';
+      case ExerciseTrackingType.duration:
+        return 'Укажи длительность упражнения';
+    }
+  }
+
+  void _saveApproach(StateSetter modalSetState) {
+    if (!_validateApproachForm(modalSetState)) return;
+
+    if (_editingIndex == null) {
+      _addApproach();
+    } else {
+      _updateApproach(_editingIndex!);
+    }
+
+    Navigator.pop(context);
   }
 
   void _showApproachBottomSheet() {
@@ -168,81 +401,161 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Укажи количество повторений и рабочий вес',
-                      style: TextStyle(
+                    Text(
+                      _sheetSubtitle(),
+                      style: const TextStyle(
                         fontSize: 15,
                         color: _textSecondary,
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _buildBottomSheetField(
-                      controller: _repsController,
-                      hintText: 'Количество повторений',
-                      icon: Icons.repeat_rounded,
-                      errorText: _repsError,
-                      keyboardType: TextInputType.number,
-                      onChanged: (_) {
-  modalSetState(() {
-    if (_repsError != null) {
-      _repsError = null;
-    }
-  });
-},
-                    ),
-                    const SizedBox(height: 12),
-                    _buildBottomSheetField(
-                      controller: _weightController,
-                      hintText: 'Вес (кг)',
-                      icon: Icons.fitness_center_rounded,
-                      errorText: _weightError,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      onChanged: (_) {
-  modalSetState(() {
-    if (_weightError != null) {
-      _weightError = null;
-    }
-  });
-},
-                    ),
+                    if (widget.trackingType == ExerciseTrackingType.weightReps) ...[
+                      _buildBottomSheetField(
+                        controller: _repsController,
+                        hintText: 'Количество повторений',
+                        icon: Icons.repeat_rounded,
+                        errorText: _repsError,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) {
+                          modalSetState(() {
+                            if (_repsError != null) _repsError = null;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildBottomSheetField(
+                        controller: _weightController,
+                        hintText: 'Вес (кг)',
+                        icon: Icons.fitness_center_rounded,
+                        errorText: _weightError,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) {
+                          modalSetState(() {
+                            if (_weightError != null) _weightError = null;
+                          });
+                        },
+                      ),
+                    ],
+                    if (widget.trackingType == ExerciseTrackingType.bodyweightReps) ...[
+                      _buildBottomSheetField(
+                        controller: _repsController,
+                        hintText: 'Количество повторений',
+                        icon: Icons.repeat_rounded,
+                        errorText: _repsError,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) {
+                          modalSetState(() {
+                            if (_repsError != null) _repsError = null;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _buildInfoTile(
+                        title: 'Вес тела',
+                        value: _isLoadingProfile
+                            ? 'Загрузка...'
+                            : _profileWeightKg == null
+                                ? 'Не указан в профиле'
+                                : '${_formatDouble(_profileWeightKg)} кг',
+                        errorText: _weightError,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildBottomSheetField(
+                        controller: _additionalWeightController,
+                        hintText: 'Дополнительный вес (кг)',
+                        icon: Icons.add_circle_outline_rounded,
+                        errorText: _additionalWeightError,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) {
+                          modalSetState(() {
+                            if (_additionalWeightError != null) {
+                              _additionalWeightError = null;
+                            }
+                          });
+                        },
+                      ),
+                    ],
+                    if (widget.trackingType == ExerciseTrackingType.duration) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildBottomSheetField(
+                              controller: _minutesController,
+                              hintText: 'Минуты',
+                              icon: Icons.timer_outlined,
+                              errorText: null,
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) {
+                                modalSetState(() {
+                                  if (_durationError != null) {
+                                    _durationError = null;
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildBottomSheetField(
+                              controller: _secondsController,
+                              hintText: 'Секунды',
+                              icon: Icons.timelapse_rounded,
+                              errorText: null,
+                              keyboardType: TextInputType.number,
+                              onChanged: (_) {
+                                modalSetState(() {
+                                  if (_durationError != null) {
+                                    _durationError = null;
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_durationError != null) ...[
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Text(
+                            _durationError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-  onPressed: _isApproachFormValid
-      ? () {
-          if (!_validateApproachForm(modalSetState)) return;
-
-          if (_editingIndex == null) {
-            _addApproach();
-          } else {
-            _updateApproach(_editingIndex!);
-          }
-
-          Navigator.of(bottomSheetContext).pop();
-        }
-      : null,
-  style: ElevatedButton.styleFrom(
-    backgroundColor: elevatedButtonBackgroundColor,
-    foregroundColor: elevatedButtonForegroundColor,
-    disabledBackgroundColor:
-        elevatedButtonBackgroundColor.withOpacity(0.45),
-    disabledForegroundColor:
-        elevatedButtonForegroundColor.withOpacity(0.7),
-    elevation: 0,
-    padding: const EdgeInsets.symmetric(vertical: 16),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-    ),
-  ),
-  child: const Text(
-    'Сохранить подход',
-    style: TextStyle(
-      fontSize: 17,
-      fontWeight: FontWeight.w800,
-    ),
-  ),
-),
+                        onPressed: _isApproachFormValid
+                            ? () => _saveApproach(modalSetState)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: elevatedButtonBackgroundColor,
+                          foregroundColor: Colors.black,
+                          disabledBackgroundColor:
+                              elevatedButtonBackgroundColor.withOpacity(0.45),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          _editingIndex == null ? 'Добавить' : 'Сохранить',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -254,13 +567,10 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     );
   }
 
-  Widget _buildBottomSheetField({
-    required TextEditingController controller,
-    required String hintText,
-    required IconData icon,
+  Widget _buildInfoTile({
+    required String title,
+    required String value,
     String? errorText,
-    TextInputType keyboardType = TextInputType.number,
-    ValueChanged<String>? onChanged,
   }) {
     final hasError = errorText != null;
 
@@ -269,10 +579,84 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: inputInnerColor,
+            color: _softColor,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: hasError ? Colors.red : inputOutlineBorderColor,
+              color: hasError ? Colors.red : _cardBorder,
+              width: hasError ? 1.5 : 1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.person_outline_rounded,
+                color: _textSecondary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: _textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        color: _textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              errorText,
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildBottomSheetField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    required String? errorText,
+    required TextInputType keyboardType,
+    required ValueChanged<String> onChanged,
+  }) {
+    final hasError = errorText != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: _softColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: hasError ? Colors.red : _cardBorder,
               width: hasError ? 1.5 : 1,
             ),
           ),
@@ -287,8 +671,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
             ),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(
-                color: hintTextForegroundColor,
+              hintStyle: const TextStyle(
+                color: _hintTextColor,
                 fontSize: 16,
               ),
               prefixIcon: Icon(
@@ -318,179 +702,6 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
           ),
         ],
       ],
-    );
-  }
-
-  void _addApproach() {
-    setState(() {
-      _approaches.add(
-        Approach(
-          reps: _repsController.text.trim(),
-          weight: _weightController.text.trim().replaceAll(',', '.'),
-        ),
-      );
-    });
-  }
-
-  void _updateApproach(int index) {
-    setState(() {
-      _approaches[index] = Approach(
-        reps: _repsController.text.trim(),
-        weight: _weightController.text.trim().replaceAll(',', '.'),
-      );
-    });
-  }
-
-  void _deleteApproach(int index) {
-    setState(() {
-      _approaches.removeAt(index);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(
-            children: [
-              _buildCustomHeader(),
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.02,
-              ),
-              Expanded(
-                child: _approaches.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        itemCount: _approaches.length,
-                        itemBuilder: (context, index) {
-                          final approach = _approaches[index];
-
-                          return Dismissible(
-                            key: ValueKey(
-                              '$index-${approach.reps}-${approach.weight}',
-                            ),
-                            direction: DismissDirection.endToStart,
-                            onDismissed: (direction) {
-                              _deleteApproach(index);
-                            },
-                            background: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent,
-                                borderRadius: BorderRadius.circular(22),
-                              ),
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              child: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
-                            child: GestureDetector(
-                              onTap: () => _openEditApproachDialog(index),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: _cardColor,
-                                  borderRadius: BorderRadius.circular(22),
-                                  border: Border.all(color: _cardBorder),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
-                                      blurRadius: 14,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 46,
-                                      height: 46,
-                                      decoration: BoxDecoration(
-                                        color: _softColor,
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '${index + 1}',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w800,
-                                            color: _textPrimary,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Подход ${index + 1}',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                              color: _textPrimary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${approach.reps} повторений · ${approach.weight} кг',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              color: _textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.edit_outlined,
-                                      color: _textSecondary,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: _openAddApproachDialog,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: elevatedButtonBackgroundColor,
-                    foregroundColor: elevatedButtonForegroundColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text(
-                    'Добавить подход',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -551,6 +762,20 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
   }
 
   Widget _buildEmptyState() {
+    String subtitle;
+
+    switch (widget.trackingType) {
+      case ExerciseTrackingType.weightReps:
+        subtitle = 'Добавь первый подход для этого упражнения';
+        break;
+      case ExerciseTrackingType.bodyweightReps:
+        subtitle = 'Добавь первый подход с собственным весом';
+        break;
+      case ExerciseTrackingType.duration:
+        subtitle = 'Добавь первый подход по времени';
+        break;
+    }
+
     return Center(
       child: Container(
         width: double.infinity,
@@ -593,15 +818,163 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Добавь первый подход для этого упражнения',
+            Text(
+              subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 15,
                 color: _textSecondary,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApproachCard(Approach approach, int index) {
+    return Dismissible(
+      key: ValueKey(
+        '$index-${approach.reps}-${approach.weightKg}-${approach.durationSeconds}',
+      ),
+      direction: DismissDirection.endToStart,
+      onDismissed: (direction) {
+        _deleteApproach(index);
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.redAccent,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.white,
+        ),
+      ),
+      child: GestureDetector(
+        onTap: () => _openEditApproachDialog(index),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: _cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _softColor,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: _textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Подход ${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _approachSubtitle(approach),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: _textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.edit_outlined,
+                color: _textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backGroundColor,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            children: [
+              _buildCustomHeader(),
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.02,
+              ),
+              Expanded(
+                child: _approaches.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        itemCount: _approaches.length,
+                        itemBuilder: (context, index) {
+                          final approach = _approaches[index];
+                          return _buildApproachCard(approach, index);
+                        },
+                      ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _openAddApproachDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: elevatedButtonBackgroundColor,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Добавить подход',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
