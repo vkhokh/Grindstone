@@ -411,7 +411,7 @@ class TrainingArchiveDetailPage extends StatelessWidget {
           const SizedBox(width: 8),
           _buildMetricPill(
             icon: Icons.fitness_center_rounded,
-            label: '${approach.weight} кг',
+            label: '${approach.weightKg} кг',
           ),
         ],
       ),

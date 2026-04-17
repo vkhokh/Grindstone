@@ -79,11 +79,17 @@ class WorkoutArchiveService {
         .map(
           (exercise) => Exercise(
             name: exercise.name.trim(),
+            exerciseId: exercise.exerciseId,
+            trackingType: exercise.trackingType,
             approaches: exercise.approaches
                 .map(
                   (approach) => Approach(
-                    reps: approach.reps.trim(),
-                    weight: approach.weight.trim(),
+                    reps: approach.reps,
+                    weightKg: approach.weightKg,
+                    durationSeconds: approach.durationSeconds,
+                    isBodyweight: approach.isBodyweight,
+                    bodyweightKgSnapshot: approach.bodyweightKgSnapshot,
+                    additionalWeightKg: approach.additionalWeightKg,
                   ),
                 )
                 .toList(),
@@ -91,6 +97,9 @@ class WorkoutArchiveService {
         )
         .toList();
 
-    return FullTrainingData(basicInfo: basicInfo, exercises: exercises);
+    return FullTrainingData(
+      basicInfo: basicInfo,
+      exercises: exercises,
+    );
   }
 }
