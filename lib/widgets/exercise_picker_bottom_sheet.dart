@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/exercise_catalog_data.dart';
 import '../models/exercise_catalog_item.dart';
 import '../services/custom_exercise_service.dart';
+import '../utils/input_limits.dart';
 
 class ExercisePickerBottomSheet extends StatefulWidget {
   const ExercisePickerBottomSheet({super.key});
@@ -27,9 +28,9 @@ class _ExercisePickerBottomSheetState extends State<ExercisePickerBottomSheet> {
   bool _isLoading = true;
 
   List<ExerciseCatalogItem> get _allExercises => [
-        ...exerciseCatalog,
-        ..._customExercises,
-      ];
+    ...exerciseCatalog,
+    ..._customExercises,
+  ];
 
   List<String> get _groups {
     final groups = _allExercises.map((e) => e.muscleGroup).toSet().toList()
@@ -97,165 +98,167 @@ class _ExercisePickerBottomSheetState extends State<ExercisePickerBottomSheet> {
   }
 
   Future<void> _createCustomExercise() async {
-  final nameController = TextEditingController(
-    text: _searchController.text.trim(),
-  );
+    final nameController = TextEditingController(
+      text: _searchController.text.trim(),
+    );
 
-  ExerciseTrackingType selectedType = ExerciseTrackingType.weightReps;
+    ExerciseTrackingType selectedType = ExerciseTrackingType.weightReps;
 
-  final result = await showModalBottomSheet<ExerciseCatalogItem>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            ),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              decoration: BoxDecoration(
-                color: _cardColor,
-                borderRadius: BorderRadius.circular(28),
+    final result = await showModalBottomSheet<ExerciseCatalogItem>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Создать своё упражнение',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: _textPrimary,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                decoration: BoxDecoration(
+                  color: _cardColor,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Создать своё упражнение',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: _textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      hintText: 'Название упражнения',
-                      prefixIcon: const Icon(Icons.edit_note_rounded),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(color: _borderSoft),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(color: _borderSoft),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: _accentColor,
-                          width: 1.4,
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameController,
+                      maxLength: AppInputLimits.exerciseName,
+                      buildCounter: hiddenMaxLengthCounter,
+                      decoration: InputDecoration(
+                        hintText: 'Название упражнения',
+                        prefixIcon: const Icon(Icons.edit_note_rounded),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Выберите как отслеживать упражнение',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: _textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...ExerciseTrackingType.values.map(
-                    (type) => RadioListTile<ExerciseTrackingType>(
-                      value: type,
-                      groupValue: selectedType,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() {
-                          selectedType = value;
-                        });
-                      },
-                      title: Text(
-  _trackingTypeLabel(type),
-  style: const TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w500,
-    color: _textPrimary,
-  ),
-),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final customName = nameController.text.trim();
-                        if (customName.isEmpty) return;
-
-                        Navigator.pop(
-                          context,
-                          ExerciseCatalogItem(
-                            id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-                            name: customName,
-                            muscleGroup: 'Другое',
-                            equipment: 'Не указано',
-                            trackingType: selectedType,
-                            isCustom: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: _borderSoft),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: _borderSoft),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(
+                            color: _accentColor,
+                            width: 1.4,
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _accentColor,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
                         ),
-                        elevation: 0,
                       ),
-                      child: const Text(
-  'Создать упражнение',
-  style: TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.w700,
-  ),
-),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Выберите как отслеживать упражнение',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: _textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...ExerciseTrackingType.values.map(
+                      (type) => RadioListTile<ExerciseTrackingType>(
+                        value: type,
+                        groupValue: selectedType,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setModalState(() {
+                            selectedType = value;
+                          });
+                        },
+                        title: Text(
+                          _trackingTypeLabel(type),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: _textPrimary,
+                          ),
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final customName = nameController.text.trim();
+                          if (customName.isEmpty) return;
+
+                          Navigator.pop(
+                            context,
+                            ExerciseCatalogItem(
+                              id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                              name: customName,
+                              muscleGroup: 'Другое',
+                              equipment: 'Не указано',
+                              trackingType: selectedType,
+                              isCustom: true,
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _accentColor,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Создать упражнение',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
+            );
+          },
+        );
+      },
+    );
 
-  if (result == null) return;
+    if (result == null) return;
 
-  await CustomExerciseService.instance.addExercise(result);
+    await CustomExerciseService.instance.addExercise(result);
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  setState(() {
-    final alreadyExists = _customExercises.any((e) => e.id == result.id);
-    if (!alreadyExists) {
-      _customExercises = [..._customExercises, result];
-    }
-  });
+    setState(() {
+      final alreadyExists = _customExercises.any((e) => e.id == result.id);
+      if (!alreadyExists) {
+        _customExercises = [..._customExercises, result];
+      }
+    });
 
-  Navigator.pop(context, result);
-}
+    Navigator.pop(context, result);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -311,73 +314,72 @@ class _ExercisePickerBottomSheetState extends State<ExercisePickerBottomSheet> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Найди упражнение по названию или группе мышц',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: _textSecondary,
-                          ),
+                          style: TextStyle(fontSize: 15, color: _textSecondary),
                         ),
                       ),
                     ),
                     const SizedBox(height: 18),
                     Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 20),
-  child: TextField(
-    controller: _searchController,
-    onChanged: (_) => setState(() {}),
-    decoration: InputDecoration(
-      hintText: 'Например: жим, спина, присед',
-      prefixIcon: const Icon(Icons.search_rounded),
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: _borderSoft),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: _borderSoft),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(
-          color: _accentColor,
-          width: 1.4,
-        ),
-      ),
-    ),
-  ),
-),
-const SizedBox(height: 12),
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 20),
-  child: SizedBox(
-    width: double.infinity,
-    child: ElevatedButton.icon(
-      onPressed: _createCustomExercise,
-      icon: const Icon(Icons.add_rounded),
-      label: const Text(
-  'Создать своё упражнение',
-  style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w700,
-  ),
-),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _accentColor,
-        foregroundColor: Colors.black,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        elevation: 0,
-      ),
-    ),
-  ),
-),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
+                        maxLength: AppInputLimits.exerciseSearchQuery,
+                        buildCounter: hiddenMaxLengthCounter,
+                        decoration: InputDecoration(
+                          hintText: 'Например: жим, спина, присед',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: const BorderSide(color: _borderSoft),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: const BorderSide(color: _borderSoft),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: const BorderSide(
+                              color: _accentColor,
+                              width: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _createCustomExercise,
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text(
+                            'Создать своё упражнение',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accentColor,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       height: 42,
@@ -403,10 +405,14 @@ Padding(
                                 vertical: 10,
                               ),
                               decoration: BoxDecoration(
-                                color: isSelected ? _accentColor : _softTileColor,
+                                color: isSelected
+                                    ? _accentColor
+                                    : _softTileColor,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: isSelected ? _accentColor : _borderSoft,
+                                  color: isSelected
+                                      ? _accentColor
+                                      : _borderSoft,
                                 ),
                               ),
                               child: Text(
@@ -414,7 +420,9 @@ Padding(
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: isSelected ? Colors.white : _textPrimary,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : _textPrimary,
                                 ),
                               ),
                             ),

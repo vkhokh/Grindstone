@@ -1,4 +1,5 @@
 import 'package:dp/colors.dart';
+import 'package:dp/pages/email_verification_page.dart';
 import 'package:dp/pages/login_page.dart';
 import 'package:dp/pages/main_page.dart';
 import 'package:dp/pages/user_info_page.dart';
@@ -26,32 +27,31 @@ class StartPageState extends State<StartPage> {
 
   Future<void> _prepareNavigation() async {
     final user = FirebaseAuth.instance.currentUser;
-    final hasSession = user != null;
-    var needsProfileSetup = false;
+    late final Widget nextPage;
 
-    if (hasSession) {
-      try {
-        await AuthService.instance.fetchProfile(cache: true);
-      } catch (_) {
-        // Keep startup flow working even if profile sync fails temporarily.
-      }
-      needsProfileSetup = await UserSessionStorage.needsProfileSetup();
-      await UserSessionStorage.setLoggedIn(true);
-    } else {
+    if (user == null) {
       await UserSessionStorage.logout();
+      nextPage = const LoginPage();
+    } else {
+      final isVerified = await AuthService.instance
+          .isCurrentUserEmailVerified();
+
+      if (!isVerified) {
+        await UserSessionStorage.setLoggedIn(false);
+        nextPage = const EmailVerificationPage();
+      } else {
+        final needsProfileSetup = await AuthService.instance
+            .resolveNeedsProfileSetup();
+        await UserSessionStorage.setLoggedIn(true);
+        nextPage = needsProfileSetup ? const UserInfoPage() : const MainPage();
+      }
     }
 
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
     setState(() {
-      if (!hasSession) {
-        _nextPage = const LoginPage();
-      } else if (needsProfileSetup) {
-        _nextPage = const UserInfoPage();
-      } else {
-        _nextPage = const MainPage();
-      }
+      _nextPage = nextPage;
       _opacity = 0.0;
     });
   }

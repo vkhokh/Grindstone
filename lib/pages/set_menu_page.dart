@@ -1,9 +1,11 @@
 import 'package:dp/colors.dart';
 import 'package:dp/services/user_session_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/exercise_catalog_item.dart';
 import '../models/training_models.dart';
+import '../utils/input_limits.dart';
 
 class SetMenuScreen extends StatefulWidget {
   final String exerciseName;
@@ -44,7 +46,6 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
   static const Color _cardBorder = Color(0xFFE7E5E4);
   static const Color _cardColor = Colors.white;
   static const Color _softColor = Color(0xFFFFFBF5);
-  static const Color _dangerColor = Color(0xFFEF4444);
   static const Color _hintTextColor = Color(0xFF9CA3AF);
 
   @override
@@ -90,8 +91,9 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
 
     _repsController.text = approach.reps?.toString() ?? '';
     _weightController.text = _formatDouble(approach.weightKg);
-    _additionalWeightController.text =
-        _formatDouble(approach.additionalWeightKg);
+    _additionalWeightController.text = _formatDouble(
+      approach.additionalWeightKg,
+    );
 
     final totalSeconds = approach.durationSeconds ?? 0;
     final minutes = totalSeconds ~/ 60;
@@ -175,8 +177,9 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
           _profileWeightKg != null;
     }
 
+    final seconds = int.tryParse(_secondsController.text.trim()) ?? 0;
     final totalSeconds = _parseDurationSeconds();
-    return totalSeconds > 0 && totalSeconds <= 24 * 60 * 60;
+    return seconds <= 59 && totalSeconds > 0 && totalSeconds <= 24 * 60 * 60;
   }
 
   bool _validateApproachForm(StateSetter modalSetState) {
@@ -230,9 +233,12 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     }
 
     if (widget.trackingType == ExerciseTrackingType.duration) {
+      final seconds = int.tryParse(_secondsController.text.trim()) ?? 0;
       final totalSeconds = _parseDurationSeconds();
 
-      if (totalSeconds <= 0) {
+      if (seconds > 59) {
+        newDurationError = 'Секунды должны быть от 0 до 59';
+      } else if (totalSeconds <= 0) {
         newDurationError = 'Введите время больше 0 секунд';
       } else if (totalSeconds > 24 * 60 * 60) {
         newDurationError = 'Слишком большое время';
@@ -256,10 +262,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     late final Approach approach;
 
     if (widget.trackingType == ExerciseTrackingType.weightReps) {
-      approach = Approach(
-        reps: _parseReps(),
-        weightKg: _parseWeight(),
-      );
+      approach = Approach(reps: _parseReps(), weightKg: _parseWeight());
     } else if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
       approach = Approach(
         reps: _parseReps(),
@@ -268,9 +271,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
         additionalWeightKg: _parseAdditionalWeight(),
       );
     } else {
-      approach = Approach(
-        durationSeconds: _parseDurationSeconds(),
-      );
+      approach = Approach(durationSeconds: _parseDurationSeconds());
     }
 
     setState(() {
@@ -282,10 +283,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     late final Approach approach;
 
     if (widget.trackingType == ExerciseTrackingType.weightReps) {
-      approach = Approach(
-        reps: _parseReps(),
-        weightKg: _parseWeight(),
-      );
+      approach = Approach(reps: _parseReps(), weightKg: _parseWeight());
     } else if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
       approach = Approach(
         reps: _parseReps(),
@@ -294,9 +292,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
         additionalWeightKg: _parseAdditionalWeight(),
       );
     } else {
-      approach = Approach(
-        durationSeconds: _parseDurationSeconds(),
-      );
+      approach = Approach(durationSeconds: _parseDurationSeconds());
     }
 
     setState(() {
@@ -367,7 +363,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
               padding: EdgeInsets.only(
                 left: 16,
                 right: 16,
-                bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom + 16,
+                bottom:
+                    MediaQuery.of(bottomSheetContext).viewInsets.bottom + 16,
               ),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -409,13 +406,18 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    if (widget.trackingType == ExerciseTrackingType.weightReps) ...[
+                    if (widget.trackingType ==
+                        ExerciseTrackingType.weightReps) ...[
                       _buildBottomSheetField(
                         controller: _repsController,
                         hintText: 'Количество повторений',
                         icon: Icons.repeat_rounded,
                         errorText: _repsError,
                         keyboardType: TextInputType.number,
+                        maxLength: AppInputLimits.reps,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         onChanged: (_) {
                           modalSetState(() {
                             if (_repsError != null) _repsError = null;
@@ -428,8 +430,13 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                         hintText: 'Вес (кг)',
                         icon: Icons.fitness_center_rounded,
                         errorText: _weightError,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        maxLength: AppInputLimits.weight,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                        ],
                         onChanged: (_) {
                           modalSetState(() {
                             if (_weightError != null) _weightError = null;
@@ -437,13 +444,18 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                         },
                       ),
                     ],
-                    if (widget.trackingType == ExerciseTrackingType.bodyweightReps) ...[
+                    if (widget.trackingType ==
+                        ExerciseTrackingType.bodyweightReps) ...[
                       _buildBottomSheetField(
                         controller: _repsController,
                         hintText: 'Количество повторений',
                         icon: Icons.repeat_rounded,
                         errorText: _repsError,
                         keyboardType: TextInputType.number,
+                        maxLength: AppInputLimits.reps,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         onChanged: (_) {
                           modalSetState(() {
                             if (_repsError != null) _repsError = null;
@@ -456,8 +468,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                         value: _isLoadingProfile
                             ? 'Загрузка...'
                             : _profileWeightKg == null
-                                ? 'Не указан в профиле'
-                                : '${_formatDouble(_profileWeightKg)} кг',
+                            ? 'Не указан в профиле'
+                            : '${_formatDouble(_profileWeightKg)} кг',
                         errorText: _weightError,
                       ),
                       const SizedBox(height: 12),
@@ -466,8 +478,13 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                         hintText: 'Дополнительный вес (кг)',
                         icon: Icons.add_circle_outline_rounded,
                         errorText: _additionalWeightError,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        maxLength: AppInputLimits.weight,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                        ],
                         onChanged: (_) {
                           modalSetState(() {
                             if (_additionalWeightError != null) {
@@ -477,7 +494,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                         },
                       ),
                     ],
-                    if (widget.trackingType == ExerciseTrackingType.duration) ...[
+                    if (widget.trackingType ==
+                        ExerciseTrackingType.duration) ...[
                       Row(
                         children: [
                           Expanded(
@@ -487,6 +505,10 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                               icon: Icons.timer_outlined,
                               errorText: null,
                               keyboardType: TextInputType.number,
+                              maxLength: AppInputLimits.durationMinutes,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
                               onChanged: (_) {
                                 modalSetState(() {
                                   if (_durationError != null) {
@@ -504,6 +526,10 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                               icon: Icons.timelapse_rounded,
                               errorText: null,
                               keyboardType: TextInputType.number,
+                              maxLength: AppInputLimits.durationSeconds,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
                               onChanged: (_) {
                                 modalSetState(() {
                                   if (_durationError != null) {
@@ -540,8 +566,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: elevatedButtonBackgroundColor,
                           foregroundColor: Colors.black,
-                          disabledBackgroundColor:
-                              elevatedButtonBackgroundColor.withOpacity(0.45),
+                          disabledBackgroundColor: elevatedButtonBackgroundColor
+                              .withOpacity(0.45),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
@@ -589,10 +615,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
-              const Icon(
-                Icons.person_outline_rounded,
-                color: _textSecondary,
-              ),
+              const Icon(Icons.person_outline_rounded, color: _textSecondary),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -645,6 +668,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     required String? errorText,
     required TextInputType keyboardType,
     required ValueChanged<String> onChanged,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
   }) {
     final hasError = errorText != null;
 
@@ -664,6 +689,9 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
             controller: controller,
             keyboardType: keyboardType,
             onChanged: onChanged,
+            inputFormatters: inputFormatters,
+            maxLength: maxLength,
+            buildCounter: hiddenMaxLengthCounter,
             style: const TextStyle(
               color: _textPrimary,
               fontSize: 16,
@@ -671,14 +699,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
             ),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: const TextStyle(
-                color: _hintTextColor,
-                fontSize: 16,
-              ),
-              prefixIcon: Icon(
-                icon,
-                color: _textSecondary,
-              ),
+              hintStyle: const TextStyle(color: _hintTextColor, fontSize: 16),
+              prefixIcon: Icon(icon, color: _textSecondary),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
@@ -821,10 +843,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 15,
-                color: _textSecondary,
-              ),
+              style: const TextStyle(fontSize: 15, color: _textSecondary),
             ),
           ],
         ),
@@ -849,10 +868,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: Colors.white,
-        ),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
       ),
       child: GestureDetector(
         onTap: () => _openEditApproachDialog(index),
@@ -915,10 +931,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.edit_outlined,
-                color: _textSecondary,
-              ),
+              const Icon(Icons.edit_outlined, color: _textSecondary),
             ],
           ),
         ),
@@ -936,9 +949,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
           child: Column(
             children: [
               _buildCustomHeader(),
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.02,
-              ),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
               Expanded(
                 child: _approaches.isEmpty
                     ? _buildEmptyState()
@@ -966,10 +977,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                   ),
                   child: const Text(
                     'Добавить подход',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),

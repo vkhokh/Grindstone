@@ -5,6 +5,15 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    function isVerifiedUser() {
+      return request.auth != null
+        && request.auth.token.email_verified == true;
+    }
+
+    function isVerifiedOwner(uid) {
+      return isOwner(uid) && isVerifiedUser();
+    }
+
     function isValidProfile(d) {
       return d.keys().hasOnly([
           'uid',
@@ -58,14 +67,14 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isOwner(uid);
-      allow create, update: if isOwner(uid) && isValidProfile(request.resource.data);
-      allow delete: if isOwner(uid);
+      allow read: if isVerifiedOwner(uid);
+      allow create, update: if isVerifiedOwner(uid) && isValidProfile(request.resource.data);
+      allow delete: if isVerifiedOwner(uid);
 
       match /workoutArchive/{trainingId} {
-        allow read: if isOwner(uid);
-        allow create, update: if isOwner(uid) && isValidWorkoutArchive(request.resource.data);
-        allow delete: if isOwner(uid);
+        allow read: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid) && isValidWorkoutArchive(request.resource.data);
+        allow delete: if isVerifiedOwner(uid);
       }
     }
 

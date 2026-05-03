@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 // Импортируем ваши цвета и тему
 import 'package:dp/colors.dart';
+import 'package:dp/utils/input_limits.dart';
 import 'package:google_fonts/google_fonts.dart'; // Убедитесь, что путь правильный
 
 void main() {
@@ -67,7 +68,9 @@ class TrainingScreenState extends State<TrainingScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0),
           ),
-          backgroundColor: Color(0xFFEBE3D0), // Background color (как было изначально)
+          backgroundColor: Color(
+            0xFFEBE3D0,
+          ), // Background color (как было изначально)
           child: Container(
             width: 300,
             padding: const EdgeInsets.all(24.0),
@@ -78,7 +81,8 @@ class TrainingScreenState extends State<TrainingScreen> {
                   padding: const EdgeInsets.only(top: 30, bottom: 20),
                   child: Text(
                     "Выберите упражнение",
-                    style: TextStyle( // Оставляем как было
+                    style: TextStyle(
+                      // Оставляем как было
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
@@ -91,18 +95,29 @@ class TrainingScreenState extends State<TrainingScreen> {
                     width: 288,
                     height: 56,
                     child: TextField(
+                      maxLength: AppInputLimits.exerciseName,
+                      buildCounter: hiddenMaxLengthCounter,
                       decoration: InputDecoration(
                         hintText: 'Название упражнения',
                         hintStyle: TextStyle(color: Colors.grey), // Как было
                         filled: false, // Как было (без заливки)
                         border: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.black, width: 2.0),
+                          borderSide: BorderSide(
+                            color: Colors.black,
+                            width: 2.0,
+                          ),
                         ),
                         enabledBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.black, width: 2.0),
+                          borderSide: BorderSide(
+                            color: Colors.black,
+                            width: 2.0,
+                          ),
                         ),
                         focusedBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.black, width: 2.0),
+                          borderSide: BorderSide(
+                            color: Colors.black,
+                            width: 2.0,
+                          ),
                         ),
                       ),
                       controller: _exerciseController,
@@ -118,9 +133,12 @@ class TrainingScreenState extends State<TrainingScreen> {
                         setState(() {
                           if (initialName != null) {
                             int index = exercises.indexOf(initialName);
-                            exercises[index] = exerciseName; // Обновляем существующее упражнение
+                            exercises[index] =
+                                exerciseName; // Обновляем существующее упражнение
                           } else {
-                            exercises.add(exerciseName); // Добавляем новое упражнение
+                            exercises.add(
+                              exerciseName,
+                            ); // Добавляем новое упражнение
                           }
                         });
                         Navigator.of(context).pop();
@@ -128,14 +146,17 @@ class TrainingScreenState extends State<TrainingScreen> {
                     },
                     style: ElevatedButton.styleFrom(
                       fixedSize: const Size(185, 60),
-                      backgroundColor:elevatedButtonBackgroundColor, // Как было (можно заменить на elevatedButtonBackgroundColor, если хотите)
-                      foregroundColor:elevatedButtonForegroundColor, // Как было
+                      backgroundColor:
+                          elevatedButtonBackgroundColor, // Как было (можно заменить на elevatedButtonBackgroundColor, если хотите)
+                      foregroundColor:
+                          elevatedButtonForegroundColor, // Как было
                       shadowColor: Colors.black.withValues(alpha: 2),
                       elevation: 5,
                     ),
                     child: Text(
                       'Сохранить',
-                      style: TextStyle( // Как было
+                      style: TextStyle(
+                        // Как было
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -155,11 +176,14 @@ class TrainingScreenState extends State<TrainingScreen> {
     // Определяем стиль InputDecoration в зависимости от состояния
     InputDecoration getTrainingNameInputDecoration() {
       // Если поле в фокусе ИЛИ поле не в фокусе И пустое (для подсказки), показываем рамку и заливку
-      if (_isTrainingNameFocused || _trainingNameController.text.trim().isEmpty) {
+      if (_isTrainingNameFocused ||
+          _trainingNameController.text.trim().isEmpty) {
         return InputDecoration(
           hintText: '--название тренировки--',
-          hintStyle: GoogleFonts.barlow( // Используем ваш шрифт
-            color: hintTextForegroundColor, // Используем цвет подсказки из ваших assets
+          hintStyle: GoogleFonts.barlow(
+            // Используем ваш шрифт
+            color:
+                hintTextForegroundColor, // Используем цвет подсказки из ваших assets
             fontWeight: FontWeight.bold,
             fontSize: 18, // Уменьшенный размер шрифта для подсказки
           ),
@@ -198,12 +222,17 @@ class TrainingScreenState extends State<TrainingScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
                   child: TextField(
-                    decoration: getTrainingNameInputDecoration(), // Используем динамически созданный стиль
+                    decoration:
+                        getTrainingNameInputDecoration(), // Используем динамически созданный стиль
                     controller: _trainingNameController,
                     focusNode: _trainingNameFocusNode, // Привязываем FocusNode
+                    maxLength: AppInputLimits.trainingName,
+                    buildCounter: hiddenMaxLengthCounter,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.barlow( // Стиль текста, который вводит пользователь
-                      color: elevatedButtonForegroundColor, // Используем цвет из ваших assets вместо Colors.black
+                    style: GoogleFonts.barlow(
+                      // Стиль текста, который вводит пользователь
+                      color:
+                          elevatedButtonForegroundColor, // Используем цвет из ваших assets вместо Colors.black
                       fontWeight: FontWeight.bold,
                       fontSize: 24, // Размер шрифта для введённого текста
                     ),
@@ -220,18 +249,24 @@ class TrainingScreenState extends State<TrainingScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8.0),
-                          color: inputInnerColor, // Используем серый цвет из ваших assets
+                          color:
+                              inputInnerColor, // Используем серый цвет из ваших assets
                         ),
                         child: ListTile(
                           title: Text(
                             exercises[index],
-                            style: GoogleFonts.barlow( // Используем ваш шрифт
+                            style: GoogleFonts.barlow(
+                              // Используем ваш шрифт
                               fontSize: 16,
-                              color: elevatedButtonForegroundColor, // Цвет текста упражнения тоже из assets
+                              color:
+                                  elevatedButtonForegroundColor, // Цвет текста упражнения тоже из assets
                             ),
                           ),
                           trailing: IconButton(
-                            icon: Icon(Icons.edit, color: elevatedButtonForegroundColor), // Цвет иконки из assets
+                            icon: Icon(
+                              Icons.edit,
+                              color: elevatedButtonForegroundColor,
+                            ), // Цвет иконки из assets
                             onPressed: () {
                               _openExerciseDialog(exercises[index]);
                             },
@@ -259,12 +294,16 @@ class TrainingScreenState extends State<TrainingScreen> {
                       if (trainingName.isNotEmpty) {
                         // Здесь можно добавить логику сохранения всей тренировки
                         if (kDebugMode) {
-                          debugPrint("Тренировка '$trainingName' сохранена с ${exercises.length} упражнениями.");
+                          debugPrint(
+                            "Тренировка '$trainingName' сохранена с ${exercises.length} упражнениями.",
+                          );
                         }
                       } else {
                         // Можно показать Snackbar или AlertDialog, если название не введено
                         if (kDebugMode) {
-                          debugPrint("Пожалуйста, введите название тренировки.");
+                          debugPrint(
+                            "Пожалуйста, введите название тренировки.",
+                          );
                         }
                       }
                     },

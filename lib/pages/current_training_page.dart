@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:dp/colors.dart';
 import 'package:dp/pages/set_menu_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/exercise_catalog_item.dart';
 import '../models/training_models.dart';
 import '../services/workout_archive_service.dart';
+import '../utils/input_limits.dart';
 import '../widgets/exercise_picker_bottom_sheet.dart';
 
 class CurrentWorkoutScreen extends StatefulWidget {
@@ -29,7 +31,6 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
   bool _isFinishing = false;
 
-  static const Color _screenBackground = Color(0xFFF7F3EA);
   static const Color _cardColor = Color(0xFFFFFBF5);
   static const Color _inputColor = Colors.white;
   static const Color _borderSoft = Color(0xFFE8E2D6);
@@ -129,9 +130,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     if (alreadyExists) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Упражнение "${item.name}" уже добавлено'),
-        ),
+        SnackBar(content: Text('Упражнение "${item.name}" уже добавлено')),
       );
       return;
     }
@@ -227,9 +226,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     if (training == null) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Сначала введите название тренировки'),
-        ),
+        const SnackBar(content: Text('Сначала введите название тренировки')),
       );
       return;
     }
@@ -279,8 +276,9 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
     if (result != null && result is List<Approach>) {
       setState(() {
-        final exerciseIndex =
-            exercises.indexWhere((e) => e.name == exercise.name);
+        final exerciseIndex = exercises.indexWhere(
+          (e) => e.name == exercise.name,
+        );
         if (exerciseIndex != -1) {
           exercises[exerciseIndex].approaches = result;
         }
@@ -329,10 +327,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     );
   }
 
-  Widget _buildFieldBlock({
-    required String label,
-    required Widget child,
-  }) {
+  Widget _buildFieldBlock({required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -358,13 +353,18 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     required FocusNode focusNode,
     required double fontSize,
     required FontWeight fontWeight,
+    List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
+    int? maxLength,
   }) {
     return TextField(
       controller: controller,
       focusNode: focusNode,
       onChanged: onChanged,
+      inputFormatters: inputFormatters,
       maxLines: maxLines,
+      maxLength: maxLength,
+      buildCounter: hiddenMaxLengthCounter,
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: fontWeight,
@@ -385,24 +385,15 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Colors.cyan.shade700,
-            width: 1.2,
-          ),
+          borderSide: BorderSide(color: Colors.cyan.shade700, width: 1.2),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Colors.cyan.shade700,
-            width: 1.2,
-          ),
+          borderSide: BorderSide(color: Colors.cyan.shade700, width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Colors.cyan.shade700,
-            width: 1.6,
-          ),
+          borderSide: BorderSide(color: Colors.cyan.shade700, width: 1.6),
         ),
       ),
     );
@@ -435,6 +426,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
               focusNode: _trainingNameFocusNode,
               fontSize: 18,
               fontWeight: FontWeight.w700,
+              maxLength: AppInputLimits.trainingName,
             ),
           ),
           const SizedBox(height: 16),
@@ -448,6 +440,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
               fontSize: 16,
               fontWeight: FontWeight.w500,
               maxLines: 1,
+              maxLength: AppInputLimits.trainingDescription,
             ),
           ),
         ],
@@ -524,10 +517,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                   const Text(
                     'Добавь первое упражнение для своей тренировки',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _textSecondary,
-                    ),
+                    style: TextStyle(fontSize: 15, color: _textSecondary),
                   ),
                 ],
               ),

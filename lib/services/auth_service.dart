@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../models/user_profile.dart';
 import 'user_session_storage.dart';
@@ -26,7 +25,12 @@ class AuthService {
       password: password,
     );
 
-    await UserSessionStorage.setLoggedIn(true);
+    try {
+      await credential.user?.sendEmailVerification();
+    } on FirebaseAuthException {
+      // Account creation should still succeed even if the first email send fails.
+    }
+    await UserSessionStorage.setLoggedIn(false);
     await UserSessionStorage.setNeedsProfileSetup(true);
     return credential;
   }
@@ -40,15 +44,56 @@ class AuthService {
       password: password,
     );
 
-    await UserSessionStorage.setLoggedIn(true);
-    await UserSessionStorage.setNeedsProfileSetup(false);
+    final isVerified = await isCurrentUserEmailVerified();
+    await UserSessionStorage.setLoggedIn(isVerified);
     return credential;
   }
 
+  Future<User?> reloadCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      await user.reload();
+    } on FirebaseAuthException {
+      return _auth.currentUser;
+    }
+
+    return _auth.currentUser;
+  }
+
+  Future<bool> isCurrentUserEmailVerified({bool reload = true}) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return false;
+
+    final user = reload ? await reloadCurrentUser() : currentUser;
+    final isVerified = user?.emailVerified ?? currentUser.emailVerified;
+
+    if (isVerified) {
+      try {
+        await (user ?? currentUser).getIdToken(true);
+      } on FirebaseAuthException {
+        // Fall back to the current auth state if token refresh fails.
+      }
+    }
+
+    return isVerified;
+  }
+
+  Future<void> sendCurrentUserEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No signed in user',
+      );
+    }
+
+    await user.sendEmailVerification();
+  }
+
   Future<void> sendPasswordResetEmail({required String email}) async {
-    await _auth.sendPasswordResetEmail(
-      email: email.trim(),
-    );
+    await _auth.sendPasswordResetEmail(email: email.trim());
   }
 
   Future<void> signOut() async {
@@ -86,6 +131,13 @@ class AuthService {
   }
 
   Future<UserProfileData?> fetchProfile({bool cache = true}) async {
+    return fetchProfileWithOptions(cache: cache);
+  }
+
+  Future<UserProfileData?> fetchProfileWithOptions({
+    bool cache = true,
+    bool ignoreErrors = true,
+  }) async {
     final user = _auth.currentUser;
     if (user == null) return null;
 
@@ -104,7 +156,27 @@ class AuthService {
       }
       return profile;
     } on FirebaseException {
-      return null;
+      if (ignoreErrors) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<bool> resolveNeedsProfileSetup() async {
+    try {
+      final profile = await fetchProfileWithOptions(
+        cache: true,
+        ignoreErrors: false,
+      );
+      final needsProfileSetup = profile == null || !profile.isComplete;
+      await UserSessionStorage.setNeedsProfileSetup(needsProfileSetup);
+      return needsProfileSetup;
+    } on FirebaseException {
+      final cachedProfile = await UserSessionStorage.loadProfile();
+      final needsProfileSetup = !cachedProfile.isComplete;
+      await UserSessionStorage.setNeedsProfileSetup(needsProfileSetup);
+      return needsProfileSetup;
     }
   }
 

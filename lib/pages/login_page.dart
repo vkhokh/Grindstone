@@ -1,9 +1,11 @@
 import 'package:dp/colors.dart';
+import 'package:dp/pages/email_verification_page.dart';
 import 'package:dp/pages/main_page.dart';
 import 'package:dp/pages/registration_page.dart';
 import 'package:dp/pages/user_info_page.dart';
 import 'package:dp/services/auth_service.dart';
 import 'package:dp/services/user_session_storage.dart';
+import 'package:dp/utils/input_limits.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -73,30 +75,40 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await AuthService.instance.signIn(email: email, password: password);
 
-      try {
-        await AuthService.instance.fetchProfile(cache: true);
-      } catch (_) {
-        // Не ломаем вход, если профиль временно не подтянулся.
-      }
-
-      final needsProfileSetup = await UserSessionStorage.needsProfileSetup();
-
+      final isVerified = await AuthService.instance.isCurrentUserEmailVerified(
+        reload: false,
+      );
       if (!mounted) return;
 
-      final nextPage =
-          needsProfileSetup ? const UserInfoPage() : const MainPage();
+      if (!isVerified) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EmailVerificationPage(),
+          ),
+        );
+        return;
+      }
+
+      final needsProfileSetup = await AuthService.instance
+          .resolveNeedsProfileSetup();
+      await UserSessionStorage.setLoggedIn(true);
+
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => nextPage),
+        MaterialPageRoute(
+          builder: (context) =>
+              needsProfileSetup ? const UserInfoPage() : const MainPage(),
+        ),
       );
     } on FirebaseAuthException catch (e) {
-      final message = _mapFirebaseError(e);
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_mapFirebaseError(e))));
     } catch (_) {
       if (!mounted) return;
 
@@ -121,7 +133,7 @@ class _LoginPageState extends State<LoginPage> {
       case 'invalid-email':
         return 'Некорректный e-mail';
       case 'user-disabled':
-        return 'Аккаунт отключен';
+        return 'Аккаунт отключён';
       case 'too-many-requests':
         return 'Слишком много попыток. Попробуйте позже';
       default:
@@ -129,40 +141,25 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  String _mapResetPasswordError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-email':
-        return 'Некорректный e-mail';
-      case 'user-not-found':
-        return 'Пользователь с таким e-mail не найден';
-      case 'too-many-requests':
-        return 'Слишком много попыток. Попробуйте позже';
-      default:
-        return 'Не удалось отправить письмо для сброса пароля';
+  Future<void> _showForgotPasswordDialog() async {
+    final email = emailController.text.trim();
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => ForgotPasswordDialog(initialEmail: email),
+    );
+
+    if (!mounted) return;
+
+    if (result != null && result.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Письмо для сброса пароля отправлено на $result'),
+        ),
+      );
     }
   }
-
-Future<void> _showForgotPasswordDialog() async {
-  final email = emailController.text.trim();
-
-  final result = await showDialog<String>(
-    context: context,
-    barrierDismissible: true,
-    builder: (_) => ForgotPasswordDialog(initialEmail: email),
-  );
-
-  if (!mounted) return;
-
-  if (result != null && result.isNotEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Письмо для сброса пароля отправлено на $result',
-        ),
-      ),
-    );
-  }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -181,10 +178,7 @@ Future<void> _showForgotPasswordDialog() async {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      height: 340,
-                    ),
+                    child: Image.asset('assets/images/logo.png', height: 340),
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -212,6 +206,7 @@ Future<void> _showForgotPasswordDialog() async {
                     hintText: 'Почта',
                     keyboardType: TextInputType.emailAddress,
                     errorText: emailError,
+                    maxLength: AppInputLimits.email,
                     textInputAction: TextInputAction.next,
                     onChanged: (_) {
                       if (emailError != null) {
@@ -227,6 +222,7 @@ Future<void> _showForgotPasswordDialog() async {
                     hintText: 'Пароль',
                     obscureText: obscurePassword,
                     errorText: passwordError,
+                    maxLength: AppInputLimits.password,
                     textInputAction: TextInputAction.done,
                     onChanged: (_) {
                       if (passwordError != null) {
@@ -254,15 +250,17 @@ Future<void> _showForgotPasswordDialog() async {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-  onPressed: _isSubmitting ? null : _showForgotPasswordDialog,
-  child: const Text(
-    'Забыли пароль?',
-    style: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-    ),
-  ),
-),
+                      onPressed: _isSubmitting
+                          ? null
+                          : _showForgotPasswordDialog,
+                      child: const Text(
+                        'Забыли пароль?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
@@ -312,8 +310,7 @@ Future<void> _showForgotPasswordDialog() async {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    const RegistrationPage(),
+                                builder: (context) => const RegistrationPage(),
                               ),
                             );
                           },
@@ -350,6 +347,7 @@ Future<void> _showForgotPasswordDialog() async {
     ValueChanged<String>? onChanged,
     ValueChanged<String>? onSubmitted,
     TextInputAction? textInputAction,
+    int? maxLength,
   }) {
     final hasError = errorText != null;
 
@@ -372,6 +370,8 @@ Future<void> _showForgotPasswordDialog() async {
             onChanged: onChanged,
             onSubmitted: onSubmitted,
             textInputAction: textInputAction,
+            maxLength: maxLength,
+            buildCounter: hiddenMaxLengthCounter,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -379,9 +379,7 @@ Future<void> _showForgotPasswordDialog() async {
             ),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(
-                color: hintTextForegroundColor,
-              ),
+              hintStyle: TextStyle(color: hintTextForegroundColor),
               suffixIcon: suffixIcon,
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
@@ -409,13 +407,11 @@ Future<void> _showForgotPasswordDialog() async {
     );
   }
 }
+
 class ForgotPasswordDialog extends StatefulWidget {
   final String initialEmail;
 
-  const ForgotPasswordDialog({
-    super.key,
-    required this.initialEmail,
-  });
+  const ForgotPasswordDialog({super.key, required this.initialEmail});
 
   @override
   State<ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
@@ -501,9 +497,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text(
         'Сброс пароля',
         style: TextStyle(fontWeight: FontWeight.w700),
@@ -519,6 +513,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
           TextField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
+            maxLength: AppInputLimits.email,
+            buildCounter: hiddenMaxLengthCounter,
             autofocus: true,
             decoration: InputDecoration(
               hintText: 'Почта',
@@ -543,10 +539,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
           const SizedBox(height: 8),
           const Text(
             'Проверьте папку "Спам", если письмо не пришло сразу.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.black54,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.black54),
           ),
         ],
       ),
