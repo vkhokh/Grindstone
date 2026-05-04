@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dp/colors.dart';
 import 'package:dp/pages/current_training_page.dart';
+import 'package:dp/pages/progress_page.dart';
 import 'package:dp/pages/profile_page.dart';
 import 'package:dp/pages/training_archive_page.dart';
 import 'package:flutter/material.dart';
@@ -655,7 +656,14 @@ Widget _buildQuickActions() {
                 icon: Icons.bar_chart_rounded,
                 label: 'Прогресс',
                 isActive: false,
-                onTap: () {},
+                onTap: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProgressPage(),
+                    ),
+                  );
+                },
               ),
             ),
             Expanded(

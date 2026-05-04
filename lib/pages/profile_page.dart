@@ -3,6 +3,7 @@ import 'package:dp/models/user_profile.dart';
 import 'package:dp/pages/current_training_page.dart';
 import 'package:dp/pages/login_page.dart';
 import 'package:dp/pages/main_page.dart';
+import 'package:dp/pages/progress_page.dart';
 import 'package:dp/pages/training_archive_page.dart';
 import 'package:dp/services/auth_service.dart';
 import 'package:dp/services/user_session_storage.dart';
@@ -821,7 +822,14 @@ class ProfilePageState extends State<ProfilePage> {
                 icon: Icons.bar_chart_rounded,
                 label: 'Прогресс',
                 isActive: false,
-                onTap: () {},
+                onTap: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProgressPage(),
+                    ),
+                  );
+                },
               ),
             ),
             Expanded(

@@ -66,6 +66,128 @@ service cloud.firestore {
         && d.completedAt is timestamp;
     }
 
+    function isValidTrackingType(value) {
+      return value in ['weightReps', 'bodyweightReps', 'duration'];
+    }
+
+    function isValidProgressOverview(d) {
+      return d.keys().hasOnly([
+          'totalTrainings',
+          'totalExerciseSessions',
+          'totalApproaches',
+          'uniqueExercises',
+          'totalVolumeKg',
+          'totalDurationSeconds',
+          'lastCompletedAt',
+          'generatedAt',
+          'schemaVersion'
+        ])
+        && d.totalTrainings is int
+        && d.totalTrainings >= 0
+        && d.totalExerciseSessions is int
+        && d.totalExerciseSessions >= 0
+        && d.totalApproaches is int
+        && d.totalApproaches >= 0
+        && d.uniqueExercises is int
+        && d.uniqueExercises >= 0
+        && d.totalVolumeKg is number
+        && d.totalVolumeKg >= 0
+        && d.totalDurationSeconds is int
+        && d.totalDurationSeconds >= 0
+        && (!('lastCompletedAt' in d) || d.lastCompletedAt is timestamp)
+        && d.generatedAt is timestamp
+        && d.schemaVersion is int
+        && d.schemaVersion == 1;
+    }
+
+    function isValidExerciseProgress(d) {
+      return d.keys().hasOnly([
+          'exerciseKey',
+          'exerciseId',
+          'exerciseName',
+          'trackingType',
+          'sessionCount',
+          'approachCount',
+          'personalBestValue',
+          'bestWeightKg',
+          'bestReps',
+          'bestAdditionalWeightKg',
+          'bestTotalLoadKg',
+          'bestDurationSeconds',
+          'totalVolumeKg',
+          'totalDurationSeconds',
+          'firstPerformanceValue',
+          'latestPerformanceValue',
+          'improvementValue',
+          'improvementPercent',
+          'lastCompletedAt'
+        ])
+        && d.exerciseKey is string
+        && d.exerciseKey.size() >= 1
+        && d.exerciseName is string
+        && d.exerciseName.size() >= 1
+        && (!('exerciseId' in d) || d.exerciseId is string)
+        && isValidTrackingType(d.trackingType)
+        && d.sessionCount is int
+        && d.sessionCount >= 0
+        && d.approachCount is int
+        && d.approachCount >= 0
+        && d.personalBestValue is number
+        && d.personalBestValue >= 0
+        && (!('bestWeightKg' in d) || (d.bestWeightKg is number && d.bestWeightKg >= 0))
+        && (!('bestReps' in d) || (d.bestReps is int && d.bestReps >= 0))
+        && (!('bestAdditionalWeightKg' in d) || (d.bestAdditionalWeightKg is number && d.bestAdditionalWeightKg >= 0))
+        && (!('bestTotalLoadKg' in d) || (d.bestTotalLoadKg is number && d.bestTotalLoadKg >= 0))
+        && (!('bestDurationSeconds' in d) || (d.bestDurationSeconds is int && d.bestDurationSeconds >= 0))
+        && d.totalVolumeKg is number
+        && d.totalVolumeKg >= 0
+        && d.totalDurationSeconds is int
+        && d.totalDurationSeconds >= 0
+        && (!('firstPerformanceValue' in d) || (d.firstPerformanceValue is number && d.firstPerformanceValue >= 0))
+        && (!('latestPerformanceValue' in d) || (d.latestPerformanceValue is number && d.latestPerformanceValue >= 0))
+        && d.improvementValue is number
+        && (!('improvementPercent' in d) || d.improvementPercent is number)
+        && (!('lastCompletedAt' in d) || d.lastCompletedAt is timestamp);
+    }
+
+    function isValidExerciseProgressPoint(d) {
+      return d.keys().hasOnly([
+          'trainingId',
+          'trainingName',
+          'completedAt',
+          'performanceValue',
+          'bestWeightKg',
+          'bestReps',
+          'bestAdditionalWeightKg',
+          'bestTotalLoadKg',
+          'bestDurationSeconds',
+          'totalVolumeKg',
+          'totalDurationSeconds',
+          'approachCount',
+          'orderIndex'
+        ])
+        && d.trainingId is string
+        && d.trainingId.size() >= 1
+        && d.trainingName is string
+        && d.trainingName.size() >= 1
+        && d.completedAt is timestamp
+        && d.performanceValue is number
+        && d.performanceValue >= 0
+        && (!('bestWeightKg' in d) || (d.bestWeightKg is number && d.bestWeightKg >= 0))
+        && (!('bestReps' in d) || (d.bestReps is int && d.bestReps >= 0))
+        && (!('bestAdditionalWeightKg' in d) || (d.bestAdditionalWeightKg is number && d.bestAdditionalWeightKg >= 0))
+        && (!('bestTotalLoadKg' in d) || (d.bestTotalLoadKg is number && d.bestTotalLoadKg >= 0))
+        && (!('bestDurationSeconds' in d) || (d.bestDurationSeconds is int && d.bestDurationSeconds >= 0))
+        && d.totalVolumeKg is number
+        && d.totalVolumeKg >= 0
+        && d.totalDurationSeconds is int
+        && d.totalDurationSeconds >= 0
+        && d.approachCount is int
+        && d.approachCount >= 0
+        && d.orderIndex is int
+        && d.orderIndex >= 0;
+    }
+
     match /users/{uid} {
       allow read: if isVerifiedOwner(uid);
       allow create, update: if isVerifiedOwner(uid) && isValidProfile(request.resource.data);
@@ -75,6 +197,24 @@ service cloud.firestore {
         allow read: if isVerifiedOwner(uid);
         allow create, update: if isVerifiedOwner(uid) && isValidWorkoutArchive(request.resource.data);
         allow delete: if isVerifiedOwner(uid);
+      }
+
+      match /progressOverview/{documentId} {
+        allow read: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid) && isValidProgressOverview(request.resource.data);
+        allow delete: if isVerifiedOwner(uid);
+      }
+
+      match /exerciseProgress/{exerciseKey} {
+        allow read: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid) && isValidExerciseProgress(request.resource.data);
+        allow delete: if isVerifiedOwner(uid);
+
+        match /points/{pointId} {
+          allow read: if isVerifiedOwner(uid);
+          allow create, update: if isVerifiedOwner(uid) && isValidExerciseProgressPoint(request.resource.data);
+          allow delete: if isVerifiedOwner(uid);
+        }
       }
     }
 

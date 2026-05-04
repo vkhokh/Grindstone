@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/archived_training.dart';
 import '../models/training_models.dart';
+import 'workout_progress_service.dart';
 
 class WorkoutArchiveService {
   WorkoutArchiveService._();
@@ -50,6 +51,12 @@ class WorkoutArchiveService {
       'approachCount': approachCount,
       'completedAt': FieldValue.serverTimestamp(),
     });
+
+    try {
+      await WorkoutProgressService.instance.recomputeProgress();
+    } catch (_) {
+      // Progress can be restored later from the workout archive if sync fails.
+    }
   }
 
   Future<void> deleteTraining(String trainingId) async {
@@ -62,6 +69,12 @@ class WorkoutArchiveService {
     }
 
     await _archiveCollection(user.uid).doc(trainingId).delete();
+
+    try {
+      await WorkoutProgressService.instance.recomputeProgress();
+    } catch (_) {
+      // Progress can be restored later from the workout archive if sync fails.
+    }
   }
 
   CollectionReference<Map<String, dynamic>> _archiveCollection(String uid) {
