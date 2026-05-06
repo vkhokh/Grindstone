@@ -56,9 +56,7 @@ class _ProgressPageState extends State<ProgressPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Не удалось обновить прогресс. Попробуйте ещё раз.',
-          ),
+          content: Text('Не удалось обновить прогресс. Попробуйте ещё раз.'),
         ),
       );
     } finally {
@@ -78,9 +76,7 @@ class _ProgressPageState extends State<ProgressPage> {
 
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CurrentWorkoutScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const CurrentWorkoutScreen()),
     );
   }
 
@@ -107,10 +103,12 @@ class _ProgressPageState extends State<ProgressPage> {
                 return StreamBuilder<List<ArchivedTraining>>(
                   stream: WorkoutArchiveService.instance.watchArchive(),
                   builder: (context, archiveSnapshot) {
-                    final overview = overviewSnapshot.data ??
+                    final overview =
+                        overviewSnapshot.data ??
                         const WorkoutProgressOverview.empty();
                     final summaries =
-                        summarySnapshot.data ?? const <ExerciseProgressSummary>[];
+                        summarySnapshot.data ??
+                        const <ExerciseProgressSummary>[];
                     final archivedTrainings =
                         archiveSnapshot.data ?? const <ArchivedTraining>[];
 
@@ -150,7 +148,9 @@ class _ProgressPageState extends State<ProgressPage> {
                                     const SizedBox(height: 18),
                                     _buildActivityCard(archivedTrainings),
                                     const SizedBox(height: 18),
-                                    _buildExerciseSectionTitle(summaries.length),
+                                    _buildExerciseSectionTitle(
+                                      summaries.length,
+                                    ),
                                   ],
                                 ],
                               ),
@@ -158,7 +158,12 @@ class _ProgressPageState extends State<ProgressPage> {
                           ),
                           if (summaries.isNotEmpty)
                             SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                0,
+                                20,
+                                120,
+                              ),
                               sliver: SliverList(
                                 delegate: SliverChildBuilderDelegate(
                                   (context, index) => Padding(
@@ -232,10 +237,7 @@ class _ProgressPageState extends State<ProgressPage> {
                       color: elevatedButtonBackgroundColor,
                     ),
                   )
-                : const Icon(
-                    Icons.refresh_rounded,
-                    color: _textPrimary,
-                  ),
+                : const Icon(Icons.refresh_rounded, color: _textPrimary),
           ),
         ),
       ],
@@ -305,29 +307,58 @@ class _ProgressPageState extends State<ProgressPage> {
             ],
           ),
           const SizedBox(height: 18),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          Column(
             children: [
-              _buildStatTile(
-                title: 'Упражнения',
-                value: '${overview.uniqueExercises}',
-                subtitle: 'уникальных',
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _buildStatTile(
+                        title:
+                            '\u0423\u043f\u0440\u0430\u0436\u043d\u0435\u043d\u0438\u044f',
+                        value: '${overview.uniqueExercises}',
+                        subtitle:
+                            '\u0443\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0445',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatTile(
+                        title: '\u041f\u043e\u0434\u0445\u043e\u0434\u044b',
+                        value: '${overview.totalApproaches}',
+                        subtitle:
+                            '\u0432\u0441\u0435\u0433\u043e \u0432 \u0430\u0440\u0445\u0438\u0432\u0435',
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              _buildStatTile(
-                title: 'Подходы',
-                value: '${overview.totalApproaches}',
-                subtitle: 'всего в архиве',
-              ),
-              _buildStatTile(
-                title: 'Объём',
-                value: _formatWeight(overview.totalVolumeKg),
-                subtitle: 'накопленный',
-              ),
-              _buildStatTile(
-                title: 'Последняя',
-                value: _formatDate(overview.lastCompletedAt),
-                subtitle: 'тренировка',
+              const SizedBox(height: 12),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _buildStatTile(
+                        title: '\u041e\u0431\u044a\u0435\u043c',
+                        value: _formatWeight(overview.totalVolumeKg),
+                        subtitle:
+                            '\u043d\u0430\u043a\u043e\u043f\u043b\u0435\u043d\u043d\u044b\u0439',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatTile(
+                        title:
+                            '\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f',
+                        value: _formatDate(overview.lastCompletedAt),
+                        subtitle:
+                            '\u0442\u0440\u0435\u043d\u0438\u0440\u043e\u0432\u043a\u0430',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -342,7 +373,8 @@ class _ProgressPageState extends State<ProgressPage> {
     required String subtitle,
   }) {
     return Container(
-      width: 150,
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 108),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _softTileColor,
@@ -363,6 +395,8 @@ class _ProgressPageState extends State<ProgressPage> {
           const SizedBox(height: 8),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -372,10 +406,9 @@ class _ProgressPageState extends State<ProgressPage> {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              color: _textSecondary,
-            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: _textSecondary),
           ),
         ],
       ),
@@ -544,10 +577,7 @@ class _ProgressPageState extends State<ProgressPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: _textSecondary,
-                ),
+                const Icon(Icons.chevron_right_rounded, color: _textSecondary),
               ],
             ),
             const SizedBox(height: 16),
@@ -575,10 +605,7 @@ class _ProgressPageState extends State<ProgressPage> {
     );
   }
 
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String text,
-  }) {
+  Widget _buildInfoChip({required IconData icon, required String text}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -649,11 +676,7 @@ class _ProgressPageState extends State<ProgressPage> {
           const Text(
             'Завершите хотя бы одну тренировку и сохраните её в архив. После этого появятся графики, рекорды и история по упражнениям.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              color: _textSecondary,
-              height: 1.35,
-            ),
+            style: TextStyle(fontSize: 15, color: _textSecondary, height: 1.35),
           ),
           const SizedBox(height: 22),
           SizedBox(
@@ -671,10 +694,7 @@ class _ProgressPageState extends State<ProgressPage> {
               ),
               child: const Text(
                 'Начать тренировку',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
             ),
           ),
@@ -698,11 +718,7 @@ class _ProgressPageState extends State<ProgressPage> {
           child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.cloud_off_rounded,
-                size: 40,
-                color: _textSecondary,
-              ),
+              Icon(Icons.cloud_off_rounded, size: 40, color: _textSecondary),
               SizedBox(height: 14),
               Text(
                 'Не удалось загрузить прогресс',
@@ -813,8 +829,9 @@ class _ProgressPageState extends State<ProgressPage> {
     required bool isActive,
     required VoidCallback? onTap,
   }) {
-    final color =
-        isActive ? elevatedButtonBackgroundColor : const Color(0xFF6F6F74);
+    final color = isActive
+        ? elevatedButtonBackgroundColor
+        : const Color(0xFF6F6F74);
 
     return GestureDetector(
       onTap: onTap,
@@ -865,11 +882,7 @@ class _ProgressPageState extends State<ProgressPage> {
             ),
           ],
         ),
-        child: const Icon(
-          Icons.add_rounded,
-          color: Colors.white,
-          size: 32,
-        ),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
       ),
     );
   }
@@ -881,14 +894,16 @@ class _ProgressPageState extends State<ProgressPage> {
       7,
       (index) => today.subtract(Duration(days: 6 - index)),
     );
-    final counts = <DateTime, int>{
-      for (final date in dates) date: 0,
-    };
+    final counts = <DateTime, int>{for (final date in dates) date: 0};
 
     for (final training in archivedTrainings) {
       final completedAt = training.completedAt?.toLocal();
       if (completedAt == null) continue;
-      final day = DateTime(completedAt.year, completedAt.month, completedAt.day);
+      final day = DateTime(
+        completedAt.year,
+        completedAt.month,
+        completedAt.day,
+      );
       if (counts.containsKey(day)) {
         counts[day] = (counts[day] ?? 0) + 1;
       }
@@ -980,10 +995,7 @@ class _ProgressPageState extends State<ProgressPage> {
 }
 
 class _WeekBarData {
-  const _WeekBarData({
-    required this.label,
-    required this.count,
-  });
+  const _WeekBarData({required this.label, required this.count});
 
   final String label;
   final int count;
