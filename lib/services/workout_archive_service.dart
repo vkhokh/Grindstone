@@ -24,27 +24,57 @@ class WorkoutArchiveService {
   }
 
   Stream<List<ArchivedTraining>> watchArchive() {
-    return _auth
-        .authStateChanges()
-        .asyncExpand((user) {
-          if (user == null) {
-            return Stream.value(const <ArchivedTraining>[]);
-          }
+    final archiveStream = _auth.authStateChanges().asyncExpand((user) {
+      if (user == null) {
+        return Stream.value(const <ArchivedTraining>[]);
+      }
 
-          return _archiveCollection(user.uid)
-              .orderBy('completedAt', descending: true)
-              .snapshots()
-              .map(
-                (snapshot) =>
-                    snapshot.docs.map(ArchivedTraining.fromFirestore).toList(),
-              );
-        })
-        .timeout(
-          _streamInitialTimeout,
-          onTimeout: (sink) {
-            sink.add(const <ArchivedTraining>[]);
+      return _archiveCollection(user.uid)
+          .orderBy('completedAt', descending: true)
+          .snapshots()
+          .map(
+            (snapshot) =>
+                snapshot.docs.map(ArchivedTraining.fromFirestore).toList(),
+          );
+    });
+
+    return _withInitialFallback(archiveStream, const <ArchivedTraining>[]);
+  }
+
+  Stream<T> _withInitialFallback<T>(Stream<T> source, T fallback) {
+    late StreamSubscription<T> subscription;
+    Timer? initialTimer;
+    var hasFirstValue = false;
+
+    late final StreamController<T> controller;
+    controller = StreamController<T>(
+      onListen: () {
+        initialTimer = Timer(_streamInitialTimeout, () {
+          if (!hasFirstValue) {
+            hasFirstValue = true;
+            controller.add(fallback);
+          }
+        });
+
+        subscription = source.listen(
+          (value) {
+            if (!hasFirstValue) {
+              hasFirstValue = true;
+              initialTimer?.cancel();
+            }
+            controller.add(value);
           },
+          onError: controller.addError,
+          onDone: controller.close,
         );
+      },
+      onCancel: () async {
+        initialTimer?.cancel();
+        await subscription.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<void> archiveTraining(

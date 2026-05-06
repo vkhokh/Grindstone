@@ -22,76 +22,99 @@ class WorkoutProgressService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Stream<WorkoutProgressOverview> watchOverview() {
-    return _auth
-        .authStateChanges()
-        .asyncExpand((user) {
-          if (user == null) {
-            return Stream.value(const WorkoutProgressOverview.empty());
-          }
+    final overviewStream = _auth.authStateChanges().asyncExpand((user) {
+      if (user == null) {
+        return Stream.value(const WorkoutProgressOverview.empty());
+      }
 
-          return _overviewDocument(user.uid).snapshots().map((snapshot) {
-            if (!snapshot.exists) {
-              return const WorkoutProgressOverview.empty();
-            }
-            return WorkoutProgressOverview.fromFirestore(snapshot);
-          });
-        })
-        .timeout(
-          _streamInitialTimeout,
-          onTimeout: (sink) {
-            sink.add(const WorkoutProgressOverview.empty());
-          },
-        );
+      return _overviewDocument(user.uid).snapshots().map((snapshot) {
+        if (!snapshot.exists) {
+          return const WorkoutProgressOverview.empty();
+        }
+        return WorkoutProgressOverview.fromFirestore(snapshot);
+      });
+    });
+
+    return _withInitialFallback(
+      overviewStream,
+      const WorkoutProgressOverview.empty(),
+    );
   }
 
   Stream<List<ExerciseProgressSummary>> watchExerciseSummaries() {
-    return _auth
-        .authStateChanges()
-        .asyncExpand((user) {
-          if (user == null) {
-            return Stream.value(const <ExerciseProgressSummary>[]);
-          }
+    final summaryStream = _auth.authStateChanges().asyncExpand((user) {
+      if (user == null) {
+        return Stream.value(const <ExerciseProgressSummary>[]);
+      }
 
-          return _exerciseProgressCollection(user.uid)
-              .orderBy('lastCompletedAt', descending: true)
-              .snapshots()
-              .map(
-                (snapshot) => snapshot.docs
-                    .map(ExerciseProgressSummary.fromFirestore)
-                    .toList(),
-              );
-        })
-        .timeout(
-          _streamInitialTimeout,
-          onTimeout: (sink) {
-            sink.add(const <ExerciseProgressSummary>[]);
-          },
-        );
+      return _exerciseProgressCollection(user.uid)
+          .orderBy('lastCompletedAt', descending: true)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map(ExerciseProgressSummary.fromFirestore)
+                .toList(),
+          );
+    });
+
+    return _withInitialFallback(
+      summaryStream,
+      const <ExerciseProgressSummary>[],
+    );
   }
 
   Stream<List<ExerciseProgressPoint>> watchExercisePoints(String exerciseKey) {
-    return _auth
-        .authStateChanges()
-        .asyncExpand((user) {
-          if (user == null) {
-            return Stream.value(const <ExerciseProgressPoint>[]);
-          }
+    final pointsStream = _auth.authStateChanges().asyncExpand((user) {
+      if (user == null) {
+        return Stream.value(const <ExerciseProgressPoint>[]);
+      }
 
-          return _pointsCollection(user.uid, exerciseKey)
-              .orderBy('completedAt')
-              .snapshots()
-              .map(
-                (snapshot) => snapshot.docs
-                    .map(ExerciseProgressPoint.fromFirestore)
-                    .toList(),
-              );
-        })
-        .timeout(
-          _streamInitialTimeout,
-          onTimeout: (sink) {
-            sink.add(const <ExerciseProgressPoint>[]);
+      return _pointsCollection(user.uid, exerciseKey)
+          .orderBy('completedAt')
+          .snapshots()
+          .map(
+            (snapshot) =>
+                snapshot.docs.map(ExerciseProgressPoint.fromFirestore).toList(),
+          );
+    });
+
+    return _withInitialFallback(pointsStream, const <ExerciseProgressPoint>[]);
+  }
+
+  Stream<T> _withInitialFallback<T>(Stream<T> source, T fallback) {
+    late StreamSubscription<T> subscription;
+    Timer? initialTimer;
+    var hasFirstValue = false;
+
+    late final StreamController<T> controller;
+    controller = StreamController<T>(
+      onListen: () {
+        initialTimer = Timer(_streamInitialTimeout, () {
+          if (!hasFirstValue) {
+            hasFirstValue = true;
+            controller.add(fallback);
+          }
+        });
+
+        subscription = source.listen(
+          (value) {
+            if (!hasFirstValue) {
+              hasFirstValue = true;
+              initialTimer?.cancel();
+            }
+            controller.add(value);
           },
+          onError: controller.addError,
+          onDone: controller.close,
         );
+      },
+      onCancel: () async {
+        initialTimer?.cancel();
+        await subscription.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<void> ensureProgressData() async {
