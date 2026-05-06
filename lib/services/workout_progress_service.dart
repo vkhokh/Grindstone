@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -12,67 +14,98 @@ class WorkoutProgressService {
   static final WorkoutProgressService instance = WorkoutProgressService._();
 
   static const String _overviewDocumentId = 'summary';
+  static const Duration _readTimeout = Duration(seconds: 15);
+  static const Duration _streamInitialTimeout = Duration(seconds: 12);
+  static const Duration _writeTimeout = Duration(seconds: 20);
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Stream<WorkoutProgressOverview> watchOverview() {
-    return _auth.authStateChanges().asyncExpand((user) {
-      if (user == null) {
-        return Stream.value(const WorkoutProgressOverview.empty());
-      }
+    return _auth
+        .authStateChanges()
+        .asyncExpand((user) {
+          if (user == null) {
+            return Stream.value(const WorkoutProgressOverview.empty());
+          }
 
-      return _overviewDocument(user.uid).snapshots().map((snapshot) {
-        if (!snapshot.exists) {
-          return const WorkoutProgressOverview.empty();
-        }
-        return WorkoutProgressOverview.fromFirestore(snapshot);
-      });
-    });
+          return _overviewDocument(user.uid).snapshots().map((snapshot) {
+            if (!snapshot.exists) {
+              return const WorkoutProgressOverview.empty();
+            }
+            return WorkoutProgressOverview.fromFirestore(snapshot);
+          });
+        })
+        .timeout(
+          _streamInitialTimeout,
+          onTimeout: (sink) {
+            sink.add(const WorkoutProgressOverview.empty());
+          },
+        );
   }
 
   Stream<List<ExerciseProgressSummary>> watchExerciseSummaries() {
-    return _auth.authStateChanges().asyncExpand((user) {
-      if (user == null) {
-        return Stream.value(const <ExerciseProgressSummary>[]);
-      }
+    return _auth
+        .authStateChanges()
+        .asyncExpand((user) {
+          if (user == null) {
+            return Stream.value(const <ExerciseProgressSummary>[]);
+          }
 
-      return _exerciseProgressCollection(user.uid)
-          .orderBy('lastCompletedAt', descending: true)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map(ExerciseProgressSummary.fromFirestore)
-                .toList(),
-          );
-    });
+          return _exerciseProgressCollection(user.uid)
+              .orderBy('lastCompletedAt', descending: true)
+              .snapshots()
+              .map(
+                (snapshot) => snapshot.docs
+                    .map(ExerciseProgressSummary.fromFirestore)
+                    .toList(),
+              );
+        })
+        .timeout(
+          _streamInitialTimeout,
+          onTimeout: (sink) {
+            sink.add(const <ExerciseProgressSummary>[]);
+          },
+        );
   }
 
   Stream<List<ExerciseProgressPoint>> watchExercisePoints(String exerciseKey) {
-    return _auth.authStateChanges().asyncExpand((user) {
-      if (user == null) {
-        return Stream.value(const <ExerciseProgressPoint>[]);
-      }
+    return _auth
+        .authStateChanges()
+        .asyncExpand((user) {
+          if (user == null) {
+            return Stream.value(const <ExerciseProgressPoint>[]);
+          }
 
-      return _pointsCollection(user.uid, exerciseKey)
-          .orderBy('completedAt')
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map(ExerciseProgressPoint.fromFirestore)
-                .toList(),
-          );
-    });
+          return _pointsCollection(user.uid, exerciseKey)
+              .orderBy('completedAt')
+              .snapshots()
+              .map(
+                (snapshot) => snapshot.docs
+                    .map(ExerciseProgressPoint.fromFirestore)
+                    .toList(),
+              );
+        })
+        .timeout(
+          _streamInitialTimeout,
+          onTimeout: (sink) {
+            sink.add(const <ExerciseProgressPoint>[]);
+          },
+        );
   }
 
   Future<void> ensureProgressData() async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final overviewSnapshot = await _overviewDocument(user.uid).get();
+    final overviewSnapshot = await _overviewDocument(
+      user.uid,
+    ).get().timeout(_readTimeout);
     if (overviewSnapshot.exists) return;
 
-    final archiveSnapshot = await _archiveCollection(user.uid).limit(1).get();
+    final archiveSnapshot = await _archiveCollection(
+      user.uid,
+    ).limit(1).get().timeout(_readTimeout);
     if (archiveSnapshot.docs.isEmpty) return;
 
     await recomputeProgress();
@@ -87,9 +120,9 @@ class WorkoutProgressService {
       );
     }
 
-    final archiveSnapshot = await _archiveCollection(user.uid)
-        .orderBy('completedAt')
-        .get();
+    final archiveSnapshot = await _archiveCollection(
+      user.uid,
+    ).orderBy('completedAt').get().timeout(_readTimeout);
     final archivedTrainings = archiveSnapshot.docs
         .map(ArchivedTraining.fromFirestore)
         .toList();
@@ -97,9 +130,11 @@ class WorkoutProgressService {
     final overviewAccumulator = _OverviewAccumulator();
     final accumulators = <String, _ExerciseProgressAccumulator>{};
 
-    for (var trainingOrder = 0;
-        trainingOrder < archivedTrainings.length;
-        trainingOrder++) {
+    for (
+      var trainingOrder = 0;
+      trainingOrder < archivedTrainings.length;
+      trainingOrder++
+    ) {
       final archivedTraining = archivedTrainings[trainingOrder];
       overviewAccumulator.totalTrainings += 1;
       overviewAccumulator.totalApproaches += archivedTraining.approachCount;
@@ -130,7 +165,8 @@ class WorkoutProgressService {
 
         overviewAccumulator.totalExerciseSessions += 1;
         overviewAccumulator.totalVolumeKg += metrics.totalVolumeKg;
-        overviewAccumulator.totalDurationSeconds += metrics.totalDurationSeconds;
+        overviewAccumulator.totalDurationSeconds +=
+            metrics.totalDurationSeconds;
 
         final accumulator = accumulators.putIfAbsent(
           bucket.exerciseKey,
@@ -146,8 +182,7 @@ class WorkoutProgressService {
           _ProgressPointWriteModel(
             trainingId: archivedTraining.id,
             trainingName: archivedTraining.name,
-            completedAt:
-                archivedTraining.completedAt ?? DateTime.now().toUtc(),
+            completedAt: archivedTraining.completedAt ?? DateTime.now().toUtc(),
             performanceValue: metrics.performanceValue,
             bestWeightKg: metrics.bestWeightKg,
             bestReps: metrics.bestReps,
@@ -187,16 +222,19 @@ class WorkoutProgressService {
   CollectionReference<Map<String, dynamic>> _exerciseProgressCollection(
     String uid,
   ) {
-    return _firestore.collection('users').doc(uid).collection('exerciseProgress');
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('exerciseProgress');
   }
 
   CollectionReference<Map<String, dynamic>> _pointsCollection(
     String uid,
     String exerciseKey,
   ) {
-    return _exerciseProgressCollection(uid)
-        .doc(exerciseKey)
-        .collection('points');
+    return _exerciseProgressCollection(
+      uid,
+    ).doc(exerciseKey).collection('points');
   }
 
   Future<void> _replaceProgressData({
@@ -209,12 +247,14 @@ class WorkoutProgressService {
 
     Future<void> flushBatch() async {
       if (operationCount == 0) return;
-      await batch.commit();
+      await batch.commit().timeout(_writeTimeout);
       batch = _firestore.batch();
       operationCount = 0;
     }
 
-    Future<void> queueDelete(DocumentReference<Map<String, dynamic>> ref) async {
+    Future<void> queueDelete(
+      DocumentReference<Map<String, dynamic>> ref,
+    ) async {
       batch.delete(ref);
       operationCount += 1;
       if (operationCount >= 400) {
@@ -237,21 +277,19 @@ class WorkoutProgressService {
     for (final summaryDocument in existingSummaries.docs) {
       final existingPoints = await summaryDocument.reference
           .collection('points')
-          .get();
+          .get()
+          .timeout(_readTimeout);
       for (final pointDocument in existingPoints.docs) {
         await queueDelete(pointDocument.reference);
       }
       await queueDelete(summaryDocument.reference);
     }
 
-    await queueSet(
-      _overviewDocument(uid),
-      {
-        ...overview,
-        'generatedAt': FieldValue.serverTimestamp(),
-        'schemaVersion': 1,
-      },
-    );
+    await queueSet(_overviewDocument(uid), {
+      ...overview,
+      'generatedAt': FieldValue.serverTimestamp(),
+      'schemaVersion': 1,
+    });
 
     for (final accumulator in accumulators.values) {
       await queueSet(
@@ -378,8 +416,9 @@ class WorkoutProgressService {
       approachCount: trackedApproaches,
       performanceValue: performanceValue,
       bestReps: trackedApproaches == 0 ? null : bestReps,
-      bestAdditionalWeightKg:
-          trackedApproaches == 0 ? null : bestAdditionalWeightKg,
+      bestAdditionalWeightKg: trackedApproaches == 0
+          ? null
+          : bestAdditionalWeightKg,
       bestTotalLoadKg: trackedApproaches == 0 ? null : bestTotalLoadKg,
       totalVolumeKg: totalVolumeKg,
     );
@@ -406,8 +445,7 @@ class WorkoutProgressService {
     return _ExerciseMetrics(
       approachCount: trackedApproaches,
       performanceValue: bestDurationSeconds.toDouble(),
-      bestDurationSeconds:
-          trackedApproaches == 0 ? null : bestDurationSeconds,
+      bestDurationSeconds: trackedApproaches == 0 ? null : bestDurationSeconds,
       totalDurationSeconds: totalDurationSeconds,
     );
   }
@@ -528,23 +566,29 @@ class _ExerciseProgressAccumulator {
       }
       bestWeightKg = _maxDouble(bestWeightKg, point.bestWeightKg);
       bestReps = _maxInt(bestReps, point.bestReps);
-      bestAdditionalWeightKg =
-          _maxDouble(bestAdditionalWeightKg, point.bestAdditionalWeightKg);
+      bestAdditionalWeightKg = _maxDouble(
+        bestAdditionalWeightKg,
+        point.bestAdditionalWeightKg,
+      );
       bestTotalLoadKg = _maxDouble(bestTotalLoadKg, point.bestTotalLoadKg);
-      bestDurationSeconds =
-          _maxInt(bestDurationSeconds, point.bestDurationSeconds);
+      bestDurationSeconds = _maxInt(
+        bestDurationSeconds,
+        point.bestDurationSeconds,
+      );
     }
 
-    final firstPerformanceValue =
-        points.isEmpty ? null : points.first.performanceValue;
-    final latestPerformanceValue =
-        points.isEmpty ? null : points.last.performanceValue;
-    final improvementValue = firstPerformanceValue == null ||
-            latestPerformanceValue == null
+    final firstPerformanceValue = points.isEmpty
+        ? null
+        : points.first.performanceValue;
+    final latestPerformanceValue = points.isEmpty
+        ? null
+        : points.last.performanceValue;
+    final improvementValue =
+        firstPerformanceValue == null || latestPerformanceValue == null
         ? 0
         : latestPerformanceValue - firstPerformanceValue;
-    final improvementPercent = firstPerformanceValue == null ||
-            firstPerformanceValue <= 0
+    final improvementPercent =
+        firstPerformanceValue == null || firstPerformanceValue <= 0
         ? null
         : (improvementValue / firstPerformanceValue) * 100;
 

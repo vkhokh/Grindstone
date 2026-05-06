@@ -74,11 +74,14 @@ class ProfilePageState extends State<ProfilePage> {
         _selectedGender = cachedProfile.gender;
         _fillControllers(cachedProfile);
         _isEditing = !cachedProfile.isComplete;
+        _isLoading = false;
       });
     }
 
     try {
-      final remoteProfile = await AuthService.instance.fetchProfile(cache: true);
+      final remoteProfile = await AuthService.instance.fetchProfile(
+        cache: true,
+      );
       if (remoteProfile != null && mounted) {
         setState(() {
           _profile = remoteProfile;
@@ -332,9 +335,9 @@ class ProfilePageState extends State<ProfilePage> {
         _profile = updatedProfile;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Фото профиля обновлено')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Фото профиля обновлено')));
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -360,9 +363,7 @@ class ProfilePageState extends State<ProfilePage> {
 
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CurrentWorkoutScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const CurrentWorkoutScreen()),
     );
   }
 
@@ -413,11 +414,7 @@ class ProfilePageState extends State<ProfilePage> {
         SizedBox(height: 6),
         Text(
           'Здесь можно обновить и настроить данные о себе',
-          style: TextStyle(
-            fontSize: 15,
-            color: _textSecondary,
-            height: 1.3,
-          ),
+          style: TextStyle(fontSize: 15, color: _textSecondary, height: 1.3),
         ),
       ],
     );
@@ -618,10 +615,10 @@ class ProfilePageState extends State<ProfilePage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: elevatedButtonBackgroundColor,
               foregroundColor: elevatedButtonForegroundColor,
-              disabledBackgroundColor:
-                  elevatedButtonBackgroundColor.withOpacity(0.45),
-              disabledForegroundColor:
-                  elevatedButtonForegroundColor.withOpacity(0.75),
+              disabledBackgroundColor: elevatedButtonBackgroundColor
+                  .withOpacity(0.45),
+              disabledForegroundColor: elevatedButtonForegroundColor
+                  .withOpacity(0.75),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -629,10 +626,7 @@ class ProfilePageState extends State<ProfilePage> {
             ),
             child: Text(
               _isSaving ? 'Сохранение...' : 'Сохранить',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -734,10 +728,7 @@ class ProfilePageState extends State<ProfilePage> {
             ),
             child: const Text(
               'Редактировать',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -750,10 +741,7 @@ class ProfilePageState extends State<ProfilePage> {
             icon: const Icon(Icons.logout),
             label: const Text(
               'Выйти из аккаунта',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
             style: OutlinedButton.styleFrom(
               backgroundColor: Colors.white,
@@ -852,8 +840,9 @@ class ProfilePageState extends State<ProfilePage> {
     required bool isActive,
     required VoidCallback? onTap,
   }) {
-    final color =
-        isActive ? elevatedButtonBackgroundColor : const Color(0xFF6F6F74);
+    final color = isActive
+        ? elevatedButtonBackgroundColor
+        : const Color(0xFF6F6F74);
 
     return GestureDetector(
       onTap: onTap,
@@ -904,21 +893,14 @@ class ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
-        child: const Icon(
-          Icons.add_rounded,
-          color: Colors.white,
-          size: 30,
-        ),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
       ),
     );
   }
 }
 
 class _ProfileInfoRow extends StatelessWidget {
-  const _ProfileInfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _ProfileInfoRow({required this.label, required this.value});
 
   final String label;
   final String value;

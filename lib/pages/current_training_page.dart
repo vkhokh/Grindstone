@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dp/colors.dart';
@@ -30,6 +31,10 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
   final FocusNode _trainingDescriptionFocusNode = FocusNode();
 
   bool _isFinishing = false;
+
+  static const String _currentTrainingPrefsKey = 'current_training';
+  static const String _finishArchiveIdPrefsKey = 'current_training_archive_id';
+  static const Duration _archiveSaveTimeout = Duration(seconds: 20);
 
   static const Color _cardColor = Color(0xFFFFFBF5);
   static const Color _inputColor = Colors.white;
@@ -64,7 +69,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
   Future<void> _loadTrainingFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final trainingString = prefs.getString('current_training');
+    final trainingString = prefs.getString(_currentTrainingPrefsKey);
 
     if (trainingString != null) {
       try {
@@ -92,7 +97,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
         exercises.isNotEmpty;
 
     if (!hasAnyContent) {
-      await prefs.remove('current_training');
+      await prefs.remove(_currentTrainingPrefsKey);
+      await prefs.remove(_finishArchiveIdPrefsKey);
       return;
     }
 
@@ -107,7 +113,21 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
       exercises: exercises,
     );
 
-    await prefs.setString('current_training', jsonEncode(fullData.toJson()));
+    await prefs.setString(
+      _currentTrainingPrefsKey,
+      jsonEncode(fullData.toJson()),
+    );
+  }
+
+  Future<String> _getOrCreateFinishArchiveId(SharedPreferences prefs) async {
+    final savedArchiveId = prefs.getString(_finishArchiveIdPrefsKey);
+    if (savedArchiveId != null && savedArchiveId.isNotEmpty) {
+      return savedArchiveId;
+    }
+
+    final archiveId = WorkoutArchiveService.instance.createArchiveId();
+    await prefs.setString(_finishArchiveIdPrefsKey, archiveId);
+    return archiveId;
   }
 
   String _getApproachWord(int count) {
@@ -222,7 +242,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
     if (!hasAnyContent) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('current_training');
+      await prefs.remove(_currentTrainingPrefsKey);
+      await prefs.remove(_finishArchiveIdPrefsKey);
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -243,13 +264,28 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     });
 
     try {
-      await WorkoutArchiveService.instance.archiveTraining(training);
-
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('current_training');
+      final archiveId = await _getOrCreateFinishArchiveId(prefs);
+
+      await WorkoutArchiveService.instance
+          .archiveTraining(training, archiveId: archiveId)
+          .timeout(_archiveSaveTimeout);
+
+      await prefs.remove(_currentTrainingPrefsKey);
+      await prefs.remove(_finishArchiveIdPrefsKey);
 
       if (!mounted) return;
       Navigator.pop(context, true);
+    } on TimeoutException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Сохранение тренировки заняло слишком много времени. Проверьте интернет и попробуйте снова.',
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
