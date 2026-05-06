@@ -81,11 +81,11 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       if (!isVerified) {
-        Navigator.pushReplacement(
-          context,
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (context) => const EmailVerificationPage(),
           ),
+          (route) => false,
         );
         return;
       }
@@ -96,12 +96,12 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) =>
               needsProfileSetup ? const UserInfoPage() : const MainPage(),
         ),
+        (route) => false,
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;

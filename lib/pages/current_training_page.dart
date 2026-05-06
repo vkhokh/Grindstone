@@ -86,21 +86,28 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
     final trainingName = _trainingNameController.text.trim();
     final trainingDescription = _trainingDescriptionController.text.trim();
+    final hasAnyContent =
+        trainingName.isNotEmpty ||
+        trainingDescription.isNotEmpty ||
+        exercises.isNotEmpty;
 
-    if (trainingName.isNotEmpty) {
-      final basicInfo = Training(
-        name: trainingName,
-        description: trainingDescription,
-        hasTraining: true,
-      );
-
-      final fullData = FullTrainingData(
-        basicInfo: basicInfo,
-        exercises: exercises,
-      );
-
-      await prefs.setString('current_training', jsonEncode(fullData.toJson()));
+    if (!hasAnyContent) {
+      await prefs.remove('current_training');
+      return;
     }
+
+    final basicInfo = Training(
+      name: trainingName,
+      description: trainingDescription,
+      hasTraining: true,
+    );
+
+    final fullData = FullTrainingData(
+      basicInfo: basicInfo,
+      exercises: exercises,
+    );
+
+    await prefs.setString('current_training', jsonEncode(fullData.toJson()));
   }
 
   String _getApproachWord(int count) {

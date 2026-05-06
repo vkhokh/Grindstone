@@ -90,9 +90,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
       await AuthService.instance.signUp(email: email, password: password);
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const EmailVerificationPage()),
+        (route) => false,
       );
     } on FirebaseAuthException catch (e) {
       debugPrint('Registration error: ${e.code} ${e.message}');

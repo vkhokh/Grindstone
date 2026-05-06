@@ -33,9 +33,16 @@ class _MainPageState extends State<MainPage> {
     _loadCurrentTraining();
   }
 
+  bool _hasCurrentTrainingDraft(FullTrainingData data) {
+    return data.basicInfo.name.trim().isNotEmpty ||
+        data.basicInfo.description.trim().isNotEmpty ||
+        data.exercises.isNotEmpty;
+  }
+
   Future<void> _loadCurrentTraining() async {
     final prefs = await SharedPreferences.getInstance();
     final trainingString = prefs.getString('current_training');
+    if (!mounted) return;
 
     if (trainingString != null) {
       try {
@@ -43,8 +50,9 @@ class _MainPageState extends State<MainPage> {
         final fullData = FullTrainingData.fromJson(jsonMap);
 
         setState(() {
-          _currentTrainingData =
-              fullData.basicInfo.hasTraining ? fullData : null;
+          _currentTrainingData = _hasCurrentTrainingDraft(fullData)
+              ? fullData
+              : null;
         });
       } catch (_) {
         setState(() {
@@ -65,12 +73,14 @@ class _MainPageState extends State<MainPage> {
         builder: (context) => const CurrentWorkoutScreen(),
       ),
     );
+    if (!mounted) return;
     _loadCurrentTraining();
   }
 
   Future<void> _startNewTraining() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('current_training');
+    if (!mounted) return;
 
     setState(() {
       _currentTrainingData = null;
@@ -83,6 +93,7 @@ class _MainPageState extends State<MainPage> {
       ),
     );
 
+    if (!mounted) return;
     _loadCurrentTraining();
   }
 
@@ -186,6 +197,9 @@ class _MainPageState extends State<MainPage> {
     final training = _currentTrainingData!;
     final exercises = training.exercises;
     final exerciseCount = exercises.length;
+    final trainingName = training.basicInfo.name.trim().isEmpty
+        ? 'Тренировка без названия'
+        : training.basicInfo.name;
 
     final totalApproaches = exercises.fold<int>(
       0,
@@ -239,7 +253,7 @@ class _MainPageState extends State<MainPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            training.basicInfo.name,
+            trainingName,
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
