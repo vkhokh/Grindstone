@@ -1,8 +1,9 @@
-﻿import 'package:dp/colors.dart';
-import 'package:flutter/material.dart';
-import 'package:dp/pages/user_info_page.dart';
+import 'package:dp/colors.dart';
 import 'package:dp/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dp/pages/email_verification_page.dart';
+import 'package:dp/utils/input_limits.dart';
+import 'package:flutter/material.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -89,19 +90,17 @@ class _RegistrationPageState extends State<RegistrationPage> {
       await AuthService.instance.signUp(email: email, password: password);
 
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const UserInfoPage(),
-        ),
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const EmailVerificationPage()),
+        (route) => false,
       );
     } on FirebaseAuthException catch (e) {
       debugPrint('Registration error: ${e.code} ${e.message}');
       final message = _mapFirebaseError(e);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       debugPrint('Registration error (unknown): $e');
       if (!mounted) return;
@@ -147,10 +146,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Center(
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    height: 340,
-                  ),
+                  child: Image.asset('assets/images/logo.png', height: 340),
                 ),
                 const SizedBox(height: 0),
                 const Text(
@@ -178,6 +174,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   hintText: 'Почта',
                   keyboardType: TextInputType.emailAddress,
                   errorText: emailError,
+                  maxLength: AppInputLimits.email,
                   onChanged: (_) {
                     if (emailError != null) {
                       setState(() {
@@ -192,6 +189,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   hintText: 'Пароль',
                   obscureText: obscurePassword,
                   errorText: passwordError,
+                  maxLength: AppInputLimits.password,
                   onChanged: (_) {
                     if (passwordError != null) {
                       setState(() {
@@ -220,6 +218,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   hintText: 'Повторите пароль',
                   obscureText: obscureConfirmPassword,
                   errorText: confirmPasswordError,
+                  maxLength: AppInputLimits.password,
                   onChanged: (_) {
                     if (confirmPasswordError != null) {
                       setState(() {
@@ -307,6 +306,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
     Widget? suffixIcon,
     String? errorText,
     ValueChanged<String>? onChanged,
+    int? maxLength,
   }) {
     final hasError = errorText != null;
 
@@ -327,6 +327,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
             obscureText: obscureText,
             keyboardType: keyboardType,
             onChanged: onChanged,
+            maxLength: maxLength,
+            buildCounter: hiddenMaxLengthCounter,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -334,9 +336,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             ),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(
-                color: hintTextForegroundColor,
-              ),
+              hintStyle: TextStyle(color: hintTextForegroundColor),
               suffixIcon: suffixIcon,
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
@@ -364,5 +364,3 @@ class _RegistrationPageState extends State<RegistrationPage> {
     );
   }
 }
-
-

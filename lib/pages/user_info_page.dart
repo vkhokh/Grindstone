@@ -166,13 +166,6 @@ class _UserInfoPageState extends State<UserInfoPage> {
         newWeightError == null;
   }
 
-  bool get _isFormValid {
-    return _nameController.text.trim().isNotEmpty &&
-        _selectedGender != null &&
-        _parseHeight() != null &&
-        _parseWeight() != null;
-  }
-
   Widget _buildAvatar() {
     Uint8List? photoBytes;
     if (_photoBase64 != null && _photoBase64!.isNotEmpty) {
@@ -196,7 +189,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
       if (photoBytes != null) {
         return Image.memory(
-          photoBytes!,
+          photoBytes,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => placeholder(),
         );
@@ -288,9 +281,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const MainPage()),
+      (route) => false,
     );
   }
 

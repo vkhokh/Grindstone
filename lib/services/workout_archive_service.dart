@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/archived_training.dart';
 import '../models/training_models.dart';
+import 'workout_progress_service.dart';
 
 class WorkoutArchiveService {
   WorkoutArchiveService._();
@@ -12,8 +15,16 @@ class WorkoutArchiveService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  static const Duration _writeTimeout = Duration(seconds: 20);
+  static const Duration _streamInitialTimeout = Duration(seconds: 12);
+  static const Duration _progressRecomputeTimeout = Duration(seconds: 30);
+
+  String createArchiveId() {
+    return _firestore.collection('_archiveIds').doc().id;
+  }
+
   Stream<List<ArchivedTraining>> watchArchive() {
-    return _auth.authStateChanges().asyncExpand((user) {
+    final archiveStream = _auth.authStateChanges().asyncExpand((user) {
       if (user == null) {
         return Stream.value(const <ArchivedTraining>[]);
       }
@@ -22,14 +33,54 @@ class WorkoutArchiveService {
           .orderBy('completedAt', descending: true)
           .snapshots()
           .map(
-            (snapshot) => snapshot.docs
-                .map(ArchivedTraining.fromFirestore)
-                .toList(),
+            (snapshot) =>
+                snapshot.docs.map(ArchivedTraining.fromFirestore).toList(),
           );
     });
+
+    return _withInitialFallback(archiveStream, const <ArchivedTraining>[]);
   }
 
-  Future<void> archiveTraining(FullTrainingData training) async {
+  Stream<T> _withInitialFallback<T>(Stream<T> source, T fallback) {
+    late StreamSubscription<T> subscription;
+    Timer? initialTimer;
+    var hasFirstValue = false;
+
+    late final StreamController<T> controller;
+    controller = StreamController<T>(
+      onListen: () {
+        initialTimer = Timer(_streamInitialTimeout, () {
+          if (!hasFirstValue) {
+            hasFirstValue = true;
+            controller.add(fallback);
+          }
+        });
+
+        subscription = source.listen(
+          (value) {
+            if (!hasFirstValue) {
+              hasFirstValue = true;
+              initialTimer?.cancel();
+            }
+            controller.add(value);
+          },
+          onError: controller.addError,
+          onDone: controller.close,
+        );
+      },
+      onCancel: () async {
+        initialTimer?.cancel();
+        await subscription.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  Future<void> archiveTraining(
+    FullTrainingData training, {
+    String? archiveId,
+  }) async {
     final user = _auth.currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -41,15 +92,31 @@ class WorkoutArchiveService {
     final normalizedTraining = _normalizeTraining(training);
     final exerciseCount = normalizedTraining.exercises.length;
     final approachCount = ArchivedTraining.countApproaches(
+      
       normalizedTraining.exercises,
     );
-
-    await _archiveCollection(user.uid).add({
+if (approachCount == 0) {
+  throw StateError('Cannot archive training without completed approaches.');
+}
+    final archiveData = {
       'training': normalizedTraining.toJson(),
       'exerciseCount': exerciseCount,
       'approachCount': approachCount,
       'completedAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    final normalizedArchiveId = archiveId?.trim();
+    if (normalizedArchiveId == null || normalizedArchiveId.isEmpty) {
+      await _archiveCollection(
+        user.uid,
+      ).add(archiveData).timeout(_writeTimeout);
+    } else {
+      await _archiveCollection(
+        user.uid,
+      ).doc(normalizedArchiveId).set(archiveData).timeout(_writeTimeout);
+    }
+
+    _scheduleProgressRecompute();
   }
 
   Future<void> deleteTraining(String trainingId) async {
@@ -61,36 +128,72 @@ class WorkoutArchiveService {
       );
     }
 
-    await _archiveCollection(user.uid).doc(trainingId).delete();
+    await _archiveCollection(
+      user.uid,
+    ).doc(trainingId).delete().timeout(_writeTimeout);
+
+    _scheduleProgressRecompute();
+  }
+
+  void _scheduleProgressRecompute() {
+    unawaited(_recomputeProgressInBackground());
+  }
+
+  Future<void> _recomputeProgressInBackground() async {
+    try {
+      await WorkoutProgressService.instance.recomputeProgress().timeout(
+        _progressRecomputeTimeout,
+      );
+    } catch (_) {
+      // Progress can be restored later from the workout archive if sync fails.
+    }
   }
 
   CollectionReference<Map<String, dynamic>> _archiveCollection(String uid) {
     return _firestore.collection('users').doc(uid).collection('workoutArchive');
   }
 
-  FullTrainingData _normalizeTraining(FullTrainingData training) {
-    final basicInfo = Training(
-      name: training.basicInfo.name.trim(),
-      description: training.basicInfo.description.trim(),
-      hasTraining: true,
-    );
+FullTrainingData _normalizeTraining(FullTrainingData training) {
+  final basicInfo = Training(
+    name: training.basicInfo.name.trim(),
+    description: training.basicInfo.description.trim(),
+    hasTraining: true,
+  );
 
-    final exercises = training.exercises
-        .map(
-          (exercise) => Exercise(
-            name: exercise.name.trim(),
-            approaches: exercise.approaches
-                .map(
-                  (approach) => Approach(
-                    reps: approach.reps.trim(),
-                    weight: approach.weight.trim(),
-                  ),
-                )
-                .toList(),
-          ),
-        )
-        .toList();
+  final exercises = training.exercises
+      .map((exercise) {
+        final completedApproaches = exercise.approaches
+            .where((approach) => approach.isCompleted)
+            .map(
+              (approach) => Approach(
+                reps: approach.reps,
+                weightKg: approach.weightKg,
+                durationSeconds: approach.durationSeconds,
+                isBodyweight: approach.isBodyweight,
+                bodyweightKgSnapshot: approach.bodyweightKgSnapshot,
+                additionalWeightKg: approach.additionalWeightKg,
+                isCompleted: true,
+              ),
+            )
+            .toList();
 
-    return FullTrainingData(basicInfo: basicInfo, exercises: exercises);
-  }
+        if (completedApproaches.isEmpty) {
+          return null;
+        }
+
+        return Exercise(
+          name: exercise.name.trim(),
+          exerciseId: exercise.exerciseId,
+          trackingType: exercise.trackingType,
+          approaches: completedApproaches,
+        );
+      })
+      .whereType<Exercise>()
+      .toList();
+
+  return FullTrainingData(
+    basicInfo: basicInfo,
+    exercises: exercises,
+  );
+}
 }

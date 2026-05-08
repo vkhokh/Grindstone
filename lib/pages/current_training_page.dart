@@ -1,12 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dp/colors.dart';
 import 'package:dp/pages/set_menu_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/exercise_catalog_item.dart';
 import '../models/training_models.dart';
 import '../services/workout_archive_service.dart';
+import '../utils/input_limits.dart';
+import '../widgets/exercise_picker_bottom_sheet.dart';
 
 class CurrentWorkoutScreen extends StatefulWidget {
   const CurrentWorkoutScreen({super.key});
@@ -18,7 +23,6 @@ class CurrentWorkoutScreen extends StatefulWidget {
 class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
   List<Exercise> exercises = [];
 
-  final TextEditingController exerciseController = TextEditingController();
   final TextEditingController _trainingNameController = TextEditingController();
   final TextEditingController _trainingDescriptionController =
       TextEditingController();
@@ -28,7 +32,10 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
   bool _isFinishing = false;
 
-  static const Color _screenBackground = Color(0xFFF7F3EA);
+  static const String _currentTrainingPrefsKey = 'current_training';
+  static const String _finishArchiveIdPrefsKey = 'current_training_archive_id';
+  static const Duration _archiveSaveTimeout = Duration(seconds: 20);
+
   static const Color _cardColor = Color(0xFFFFFBF5);
   static const Color _inputColor = Colors.white;
   static const Color _borderSoft = Color(0xFFE8E2D6);
@@ -36,6 +43,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
   static const Color _textSecondary = Color(0xFF8E8E93);
   static const Color _softTileColor = Color(0xFFFCF7EF);
   static const Color _dangerColor = Color(0xFFEF4444);
+  static const Color _completedGreen = Color(0xFF2EAD4A);
+  static const Color _completedGreenSoft = Color(0xFFEAF7EE);
 
   @override
   void initState() {
@@ -53,7 +62,6 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
   @override
   void dispose() {
-    exerciseController.dispose();
     _trainingNameController.dispose();
     _trainingDescriptionController.dispose();
     _trainingNameFocusNode.dispose();
@@ -63,7 +71,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
   Future<void> _loadTrainingFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final trainingString = prefs.getString('current_training');
+    final trainingString = prefs.getString(_currentTrainingPrefsKey);
 
     if (trainingString != null) {
       try {
@@ -71,8 +79,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
         final fullData = FullTrainingData.fromJson(jsonMap);
 
         _trainingNameController.text = fullData.basicInfo.name;
-        _trainingDescriptionController.text =
-            fullData.basicInfo.description;
+        _trainingDescriptionController.text = fullData.basicInfo.description;
 
         setState(() {
           exercises = fullData.exercises;
@@ -86,21 +93,43 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
     final trainingName = _trainingNameController.text.trim();
     final trainingDescription = _trainingDescriptionController.text.trim();
+    final hasAnyContent =
+        trainingName.isNotEmpty ||
+        trainingDescription.isNotEmpty ||
+        exercises.isNotEmpty;
 
-    if (trainingName.isNotEmpty) {
-      final basicInfo = Training(
-        name: trainingName,
-        description: trainingDescription,
-        hasTraining: true,
-      );
-
-      final fullData = FullTrainingData(
-        basicInfo: basicInfo,
-        exercises: exercises,
-      );
-
-      await prefs.setString('current_training', jsonEncode(fullData.toJson()));
+    if (!hasAnyContent) {
+      await prefs.remove(_currentTrainingPrefsKey);
+      await prefs.remove(_finishArchiveIdPrefsKey);
+      return;
     }
+
+    final basicInfo = Training(
+      name: trainingName,
+      description: trainingDescription,
+      hasTraining: true,
+    );
+
+    final fullData = FullTrainingData(
+      basicInfo: basicInfo,
+      exercises: exercises,
+    );
+
+    await prefs.setString(
+      _currentTrainingPrefsKey,
+      jsonEncode(fullData.toJson()),
+    );
+  }
+
+  Future<String> _getOrCreateFinishArchiveId(SharedPreferences prefs) async {
+    final savedArchiveId = prefs.getString(_finishArchiveIdPrefsKey);
+    if (savedArchiveId != null && savedArchiveId.isNotEmpty) {
+      return savedArchiveId;
+    }
+
+    final archiveId = WorkoutArchiveService.instance.createArchiveId();
+    await prefs.setString(_finishArchiveIdPrefsKey, archiveId);
+    return archiveId;
   }
 
   String _getApproachWord(int count) {
@@ -120,11 +149,73 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     }
   }
 
-  void _saveExercise(String name) {
+  int _completedApproachesCount(Exercise exercise) {
+    return exercise.approaches
+        .where((approach) => approach.isCompleted)
+        .length;
+  }
+
+  double _exerciseCompletionProgress(Exercise exercise) {
+    if (exercise.approaches.isEmpty) return 0;
+
+    return _completedApproachesCount(exercise) / exercise.approaches.length;
+  }
+
+  String _exerciseCompletionText(Exercise exercise) {
+    final total = exercise.approaches.length;
+    final completed = _completedApproachesCount(exercise);
+
+    if (total == 0) {
+      return 'Подходы ещё не добавлены';
+    }
+
+    if (completed == total) {
+      return 'Все подходы выполнены';
+    }
+
+    return '$completed из $total подходов выполнено';
+  }
+
+  void _saveSelectedExercise(ExerciseCatalogItem item) {
+    final alreadyExists = exercises.any(
+      (exercise) =>
+          exercise.exerciseId == item.id ||
+          exercise.name.toLowerCase() == item.name.toLowerCase(),
+    );
+
+    if (alreadyExists) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Упражнение "${item.name}" уже добавлено')),
+      );
+      return;
+    }
+
     setState(() {
-      exercises.add(Exercise(name: name, approaches: []));
+      exercises.add(
+        Exercise(
+          name: item.name,
+          exerciseId: item.id,
+          trackingType: item.trackingType,
+          approaches: [],
+        ),
+      );
     });
+
     _saveCurrentTrainingState();
+  }
+
+  Future<void> _openExercisePicker() async {
+    final selectedExercise = await showModalBottomSheet<ExerciseCatalogItem>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ExercisePickerBottomSheet(),
+    );
+
+    if (selectedExercise == null) return;
+
+    _saveSelectedExercise(selectedExercise);
   }
 
   void _deleteExercise(int index) {
@@ -134,35 +225,64 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     _saveCurrentTrainingState();
   }
 
-  FullTrainingData? _buildTrainingDataForArchive() {
-    final trainingName = _trainingNameController.text.trim();
-    if (trainingName.isEmpty) {
-      return null;
-    }
+FullTrainingData? _buildTrainingDataForArchive() {
+  final trainingName = _trainingNameController.text.trim();
 
+  if (trainingName.isEmpty) {
+    return null;
+  }
+
+  final completedExercises = exercises
+      .map((exercise) {
+        final completedApproaches = exercise.approaches
+            .where((approach) => approach.isCompleted)
+            .map(
+              (approach) => Approach(
+                reps: approach.reps,
+                weightKg: approach.weightKg,
+                durationSeconds: approach.durationSeconds,
+                isBodyweight: approach.isBodyweight,
+                bodyweightKgSnapshot: approach.bodyweightKgSnapshot,
+                additionalWeightKg: approach.additionalWeightKg,
+                isCompleted: true,
+              ),
+            )
+            .toList();
+
+        if (completedApproaches.isEmpty) {
+          return null;
+        }
+
+        return Exercise(
+          name: exercise.name,
+          exerciseId: exercise.exerciseId,
+          trackingType: exercise.trackingType,
+          approaches: completedApproaches,
+        );
+      })
+      .whereType<Exercise>()
+      .toList();
+
+  if (completedExercises.isEmpty) {
     return FullTrainingData(
       basicInfo: Training(
         name: trainingName,
         description: _trainingDescriptionController.text.trim(),
         hasTraining: true,
       ),
-      exercises: exercises
-          .map(
-            (exercise) => Exercise(
-              name: exercise.name,
-              approaches: exercise.approaches
-                  .map(
-                    (approach) => Approach(
-                      reps: approach.reps,
-                      weight: approach.weight,
-                    ),
-                  )
-                  .toList(),
-            ),
-          )
-          .toList(),
+      exercises: const [],
     );
   }
+
+  return FullTrainingData(
+    basicInfo: Training(
+      name: trainingName,
+      description: _trainingDescriptionController.text.trim(),
+      hasTraining: true,
+    ),
+    exercises: completedExercises,
+  );
+}
 
   Future<void> _finishTraining() async {
     if (_isFinishing) return;
@@ -174,7 +294,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
     if (!hasAnyContent) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('current_training');
+      await prefs.remove(_currentTrainingPrefsKey);
+      await prefs.remove(_finishArchiveIdPrefsKey);
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -185,25 +306,48 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     if (training == null) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Сначала введите название тренировки'),
-        ),
+        const SnackBar(content: Text('Сначала введите название тренировки')),
       );
       return;
     }
-
+if (training.exercises.isEmpty) {
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Отметьте хотя бы один подход как выполненный, чтобы сохранить тренировку.',
+      ),
+    ),
+  );
+  return;
+}
     setState(() {
       _isFinishing = true;
     });
 
     try {
-      await WorkoutArchiveService.instance.archiveTraining(training);
-
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('current_training');
+      final archiveId = await _getOrCreateFinishArchiveId(prefs);
+
+      await WorkoutArchiveService.instance
+          .archiveTraining(training, archiveId: archiveId)
+          .timeout(_archiveSaveTimeout);
+
+      await prefs.remove(_currentTrainingPrefsKey);
+      await prefs.remove(_finishArchiveIdPrefsKey);
 
       if (!mounted) return;
       Navigator.pop(context, true);
+    } on TimeoutException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Сохранение тренировки заняло слишком много времени. Проверьте интернет и попробуйте снова.',
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -229,6 +373,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
       MaterialPageRoute(
         builder: (context) => SetMenuScreen(
           exerciseName: exercise.name,
+          trackingType: exercise.trackingType,
           initialApproaches: exercise.approaches,
         ),
       ),
@@ -236,7 +381,9 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
 
     if (result != null && result is List<Approach>) {
       setState(() {
-        final exerciseIndex = exercises.indexWhere((e) => e.name == exercise.name);
+        final exerciseIndex = exercises.indexWhere(
+          (e) => e.name == exercise.name,
+        );
         if (exerciseIndex != -1) {
           exercises[exerciseIndex].approaches = result;
         }
@@ -245,183 +392,113 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     }
   }
 
-  void _openExerciseBottomSheet() {
-    exerciseController.clear();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (bottomSheetContext) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom + 16,
-          ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-            decoration: BoxDecoration(
-              color: _cardColor,
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.black12,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
+  Widget _buildHeader(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Добавить упражнение',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: _textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Введите название упражнения для этой тренировки',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: _textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _buildModalInputField(
-                  controller: exerciseController,
-                  hintText: 'Например: Жим лёжа',
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final exerciseName = exerciseController.text.trim();
-                      if (exerciseName.isEmpty) return;
-
-                      _saveExercise(exerciseName);
-                      Navigator.of(bottomSheetContext).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: elevatedButtonBackgroundColor,
-                      foregroundColor: elevatedButtonForegroundColor,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text(
-                      'Сохранить упражнение',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backGroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Column(
-                  children: [
-                    _buildCustomHeader(),
-                    const SizedBox(height: 18),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            _buildTrainingInfoCard(),
-                            const SizedBox(height: 16),
-                            _buildExercisesCard(),
-                            const SizedBox(height: 20),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                child: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: _textPrimary,
+                  size: 28,
                 ),
               ),
             ),
-            _buildBottomActions(),
-          ],
-        ),
+          ),
+          const Text(
+            'Тренировка',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: _textPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCustomHeader() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+  Widget _buildFieldBlock({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: _textPrimary,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 10),
+        child,
+      ],
+    );
+  }
 
-    final topSpacing = (screenHeight * 0.01).clamp(6.0, 14.0);
-    final headerHeight = (screenHeight * 0.065).clamp(48.0, 64.0);
-    final backButtonSize = (screenWidth * 0.11).clamp(40.0, 48.0);
-    final iconSize = (screenWidth * 0.065).clamp(22.0, 30.0);
-    final titleFontSize = (screenWidth * 0.06).clamp(22.0, 28.0);
-
-    return Padding(
-      padding: EdgeInsets.only(top: topSpacing),
-      child: SizedBox(
-        height: headerHeight,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: _handleBack,
-                child: SizedBox(
-                  width: backButtonSize,
-                  height: backButtonSize,
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: _textPrimary,
-                    size: iconSize,
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: backButtonSize + 8),
-              child: Text(
-                'Тренировка',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _textPrimary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: titleFontSize,
-                ),
-              ),
-            ),
-          ],
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required FocusNode focusNode,
+    required double fontSize,
+    required FontWeight fontWeight,
+    List<TextInputFormatter>? inputFormatters,
+    int maxLines = 1,
+    int? maxLength,
+  }) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      onChanged: onChanged,
+      inputFormatters: inputFormatters,
+      maxLines: maxLines,
+      maxLength: maxLength,
+      buildCounter: hiddenMaxLengthCounter,
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: _textPrimary,
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: _textSecondary.withOpacity(0.9),
+        ),
+        filled: true,
+        fillColor: _inputColor,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.cyan.shade700, width: 1.2),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.cyan.shade700, width: 1.2),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.cyan.shade700, width: 1.6),
         ),
       ),
     );
@@ -454,6 +531,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
               focusNode: _trainingNameFocusNode,
               fontSize: 18,
               fontWeight: FontWeight.w700,
+              maxLength: AppInputLimits.trainingName,
             ),
           ),
           const SizedBox(height: 16),
@@ -466,6 +544,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
               focusNode: _trainingDescriptionFocusNode,
               fontSize: 16,
               fontWeight: FontWeight.w500,
+              maxLines: 1,
+              maxLength: AppInputLimits.trainingDescription,
             ),
           ),
         ],
@@ -493,9 +573,9 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-              children: [
-                const Text(
-                  'Упражнения',
+            children: [
+              const Text(
+                'Упражнения',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -542,10 +622,7 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                   const Text(
                     'Добавь первое упражнение для своей тренировки',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: _textSecondary,
-                    ),
+                    style: TextStyle(fontSize: 15, color: _textSecondary),
                   ),
                 ],
               ),
@@ -554,7 +631,10 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
             Column(
               children: List.generate(exercises.length, (index) {
                 final exercise = exercises[index];
-                final approachCount = exercise.approaches.length;
+                final progress = _exerciseCompletionProgress(exercise);
+                final percent = (progress * 100).round();
+                final isCompleted =
+                    exercise.approaches.isNotEmpty && percent == 100;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -576,12 +656,17 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                     ),
                     child: GestureDetector(
                       onTap: () => _openExercise(exercise),
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isCompleted ? _completedGreenSoft : Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: _borderSoft),
+                          border: Border.all(
+                            color: isCompleted
+                                ? _completedGreen.withOpacity(0.45)
+                                : _borderSoft,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.035),
@@ -596,40 +681,79 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: _softTileColor,
+                                color: isCompleted
+                                    ? Colors.white.withOpacity(0.75)
+                                    : _softTileColor,
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: const Icon(
-                                Icons.fitness_center_rounded,
-                                color: _textPrimary,
+                              child: Icon(
+                                isCompleted
+                                    ? Icons.check_rounded
+                                    : Icons.fitness_center_rounded,
+                                color: isCompleted
+                                    ? _completedGreen
+                                    : _textPrimary,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                exercise.name,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  color: _textPrimary,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          exercise.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w800,
+                                            color: _textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        isCompleted ? 'Готово' : '$percent%',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: isCompleted
+                                              ? _completedGreen
+                                              : _textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _exerciseCompletionText(exercise),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      minHeight: 6,
+                                      backgroundColor: _softTileColor,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        isCompleted
+                                            ? _completedGreen
+                                            : elevatedButtonBackgroundColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              approachCount == 0
-                                  ? 'без подходов'
-                                  : '$approachCount ${_getApproachWord(approachCount)}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: _textSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: _textSecondary,
                             ),
                           ],
                         ),
@@ -644,65 +768,86 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     );
   }
 
-  Widget _buildBottomActions() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-      decoration: BoxDecoration(
-        color: Colors.transparent, // 👀 ВОТ ЭТО
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 18,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
+  Widget _buildBottomActionBar() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
         child: Row(
           children: [
             Expanded(
-              child: OutlinedButton(
-  onPressed: _isFinishing ? null : _finishTraining,
-  style: OutlinedButton.styleFrom(
-    backgroundColor: Colors.white,
-    foregroundColor: _textPrimary,
-    side: BorderSide(color: _borderSoft),
-    padding: const EdgeInsets.symmetric(vertical: 16),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    ),
-  ),
-                child: Text(
-                  _isFinishing ? 'Сохраняем...' : 'Завершить',
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
+              flex: 5,
+              child: SizedBox(
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isFinishing ? null : _finishTraining,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: _textPrimary,
+                    disabledBackgroundColor: Colors.white70,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
+                  child: _isFinishing
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: _textPrimary,
+                          ),
+                        )
+                      : const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Завершить',
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              flex: 2,
-              child: ElevatedButton.icon(
-  onPressed: _isFinishing ? null : _openExerciseBottomSheet,
-  style: ElevatedButton.styleFrom(
-    backgroundColor: elevatedButtonBackgroundColor,
-    foregroundColor: elevatedButtonForegroundColor,
-    elevation: 0,
-    padding: const EdgeInsets.symmetric(vertical: 16),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    ),
-  ),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text(
-                  'Добавить упражнение',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
+              flex: 9,
+              child: SizedBox(
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _openExercisePicker,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: elevatedButtonBackgroundColor,
+                    foregroundColor: Colors.black,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add, size: 22),
+                      SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Добавить упражнение',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -713,135 +858,35 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     );
   }
 
-  Widget _buildFieldBlock({
-    required String label,
-    required Widget child,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: _textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
-    );
-  }
-
-Widget _buildInputField({
-  required TextEditingController controller,
-  required String hintText,
-  ValueChanged<String>? onChanged,
-  FocusNode? focusNode,
-  double fontSize = 16,
-  FontWeight fontWeight = FontWeight.w500,
-}) {
-  final isFocused = focusNode?.hasFocus ?? false;
-
-  return AnimatedContainer(
-    duration: const Duration(milliseconds: 150),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: isFocused
-            ? inputOutlineBorderColor
-            : inputOutlineBorderColor.withOpacity(0.4),
-        width: 1.5,
-      ),
-    ),
-    child: TextField(
-      controller: controller,
-      onChanged: onChanged,
-      focusNode: focusNode,
-      style: TextStyle(
-        color: _textPrimary,
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-      ),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: TextStyle(
-          color: hintTextForegroundColor,
-          fontSize: fontSize,
-        ),
-
-        // 👇 ВОТ ЭТО КЛЮЧ
-        filled: true,
-        fillColor: Colors.white,
-
-        border: InputBorder.none,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-      ),
-    ),
-  );
-}
-Future<void> _handleBack() async {
-  final trainingName = _trainingNameController.text.trim();
-  final hasContent =
-      exercises.isNotEmpty ||
-      _trainingDescriptionController.text.trim().isNotEmpty;
-
-  if (!hasContent) {
-    if (!mounted) return;
-    Navigator.pop(context);
-    return;
-  }
-
-    if (trainingName.isEmpty) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-        content: Text('Сначала введите название тренировки'),
-      ),
-    );
-    return;
-  }
-
-  await _saveCurrentTrainingState();
-
-  if (!mounted) return;
-  Navigator.pop(context);
-}
-
-  Widget _buildModalInputField({
-    required TextEditingController controller,
-    required String hintText,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _inputColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderSoft),
-      ),
-      child: TextField(
-        controller: controller,
-        style: const TextStyle(
-          color: _textPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(
-            color: _textSecondary,
-            fontSize: 16,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backGroundColor,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
+          child: Column(
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 18),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Column(
+                    children: [
+                      _buildTrainingInfoCard(),
+                      const SizedBox(height: 14),
+                      _buildExercisesCard(),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
+      bottomNavigationBar: _buildBottomActionBar(),
     );
   }
 }

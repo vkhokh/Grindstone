@@ -1,5 +1,6 @@
-﻿import 'package:dp/colors.dart';
+import 'package:dp/colors.dart';
 import 'package:dp/models/user_profile.dart';
+import 'package:dp/utils/input_limits.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -51,6 +52,7 @@ class UserProfileForm extends StatelessWidget {
           controller: nameController,
           hintText: 'Имя',
           errorText: nameErrorText,
+          maxLength: AppInputLimits.userName,
           textCapitalization: TextCapitalization.words,
           onChanged: onNameChanged,
         ),
@@ -61,6 +63,7 @@ class UserProfileForm extends StatelessWidget {
           controller: heightController,
           hintText: 'Рост (см)',
           errorText: heightErrorText,
+          maxLength: AppInputLimits.height,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onChanged: onHeightChanged,
@@ -72,6 +75,7 @@ class UserProfileForm extends StatelessWidget {
           controller: weightController,
           hintText: 'Вес (кг)',
           errorText: weightErrorText,
+          maxLength: AppInputLimits.profileWeight,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
@@ -112,6 +116,7 @@ class UserProfileForm extends StatelessWidget {
     List<TextInputFormatter>? inputFormatters,
     TextCapitalization textCapitalization = TextCapitalization.none,
     ValueChanged<String>? onChanged,
+    int? maxLength,
   }) {
     final hasError = errorText != null;
 
@@ -124,6 +129,8 @@ class UserProfileForm extends StatelessWidget {
           inputFormatters: inputFormatters,
           textCapitalization: textCapitalization,
           onChanged: onChanged,
+          maxLength: maxLength,
+          buildCounter: hiddenMaxLengthCounter,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -131,9 +138,7 @@ class UserProfileForm extends StatelessWidget {
           ),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(
-              color: hintTextForegroundColor,
-            ),
+            hintStyle: TextStyle(color: hintTextForegroundColor),
             filled: true,
             fillColor: inputInnerColor,
             contentPadding: const EdgeInsets.symmetric(
