@@ -47,6 +47,8 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
   static const Color _cardColor = Colors.white;
   static const Color _softColor = Color(0xFFFFFBF5);
   static const Color _hintTextColor = Color(0xFF9CA3AF);
+  static const Color _completedGreen = Color(0xFF2EAD4A);
+  static const Color _completedGreenSoft = Color(0xFFEAF7EE);
 
   @override
   void initState() {
@@ -281,18 +283,27 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
 
   void _updateApproach(int index) {
     late final Approach approach;
+    final wasCompleted = _approaches[index].isCompleted;
 
     if (widget.trackingType == ExerciseTrackingType.weightReps) {
-      approach = Approach(reps: _parseReps(), weightKg: _parseWeight());
+      approach = Approach(
+        reps: _parseReps(),
+        weightKg: _parseWeight(),
+        isCompleted: wasCompleted,
+      );
     } else if (widget.trackingType == ExerciseTrackingType.bodyweightReps) {
       approach = Approach(
         reps: _parseReps(),
         isBodyweight: true,
         bodyweightKgSnapshot: _profileWeightKg,
         additionalWeightKg: _parseAdditionalWeight(),
+        isCompleted: wasCompleted,
       );
     } else {
-      approach = Approach(durationSeconds: _parseDurationSeconds());
+      approach = Approach(
+        durationSeconds: _parseDurationSeconds(),
+        isCompleted: wasCompleted,
+      );
     }
 
     setState(() {
@@ -304,6 +315,50 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     setState(() {
       _approaches.removeAt(index);
     });
+  }
+
+  void _duplicateApproach(int index) {
+    final original = _approaches[index];
+
+    final duplicated = Approach(
+      reps: original.reps,
+      weightKg: original.weightKg,
+      isBodyweight: original.isBodyweight,
+      bodyweightKgSnapshot: original.bodyweightKgSnapshot,
+      additionalWeightKg: original.additionalWeightKg,
+      durationSeconds: original.durationSeconds,
+      isCompleted: false,
+    );
+
+    setState(() {
+      _approaches.add(duplicated);
+    });
+  }
+
+  void _toggleApproachCompleted(int index) {
+    final original = _approaches[index];
+
+    final updated = Approach(
+      reps: original.reps,
+      weightKg: original.weightKg,
+      isBodyweight: original.isBodyweight,
+      bodyweightKgSnapshot: original.bodyweightKgSnapshot,
+      additionalWeightKg: original.additionalWeightKg,
+      durationSeconds: original.durationSeconds,
+      isCompleted: !original.isCompleted,
+    );
+
+    setState(() {
+      _approaches[index] = updated;
+    });
+  }
+
+  int get _completedApproachCount {
+    return _approaches.where((approach) => approach.isCompleted).length;
+  }
+
+  bool get _hasApproaches {
+    return _approaches.isNotEmpty;
   }
 
   String _formatDuration(int seconds) {
@@ -851,14 +906,94 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
     );
   }
 
+  Widget _buildCompletionSummary() {
+    if (!_hasApproaches) return const SizedBox.shrink();
+
+    final total = _approaches.length;
+    final completed = _completedApproachCount;
+    final progress = total == 0 ? 0.0 : completed / total;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$completed из $total подходов выполнено',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: _textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: _softColor,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                _completedGreen,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletedToggle({
+    required bool isCompleted,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: isCompleted ? _completedGreen : Colors.transparent,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isCompleted ? _completedGreen : _cardBorder,
+            width: 2,
+          ),
+        ),
+        child: isCompleted
+            ? const Icon(
+                Icons.check_rounded,
+                color: Colors.white,
+                size: 21,
+              )
+            : null,
+      ),
+    );
+  }
+
   Widget _buildApproachCard(Approach approach, int index) {
     return Dismissible(
-      key: ValueKey(
-        '$index-${approach.reps}-${approach.weightKg}-${approach.durationSeconds}',
-      ),
+      key: ObjectKey(approach),
       direction: DismissDirection.endToStart,
       onDismissed: (direction) {
-        _deleteApproach(index);
+        setState(() {
+          _approaches.remove(approach);
+        });
       },
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -872,13 +1007,18 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
       ),
       child: GestureDetector(
         onTap: () => _openEditApproachDialog(index),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _cardColor,
+            color: approach.isCompleted ? _completedGreenSoft : _cardColor,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _cardBorder),
+            border: Border.all(
+              color: approach.isCompleted
+                  ? _completedGreen.withOpacity(0.45)
+                  : _cardBorder,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.04),
@@ -888,6 +1028,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
             ],
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 width: 46,
@@ -895,6 +1036,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                 decoration: BoxDecoration(
                   color: _softColor,
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _cardBorder),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -919,19 +1061,71 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
                         color: _textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    if (approach.isCompleted) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.72),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: _completedGreen.withOpacity(0.25),
+                          ),
+                        ),
+                        child: const Text(
+                          'Выполнено',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: _completedGreen,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
                     Text(
                       _approachSubtitle(approach),
                       style: const TextStyle(
                         fontSize: 15,
                         color: _textSecondary,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.edit_outlined, color: _textSecondary),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildCompletedToggle(
+                    isCompleted: approach.isCompleted,
+                    onTap: () => _toggleApproachCompleted(index),
+                  ),
+                  const SizedBox(height: 6),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Дублировать подход',
+                    onPressed: () => _duplicateApproach(index),
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      color: _textSecondary,
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Редактировать подход',
+                    onPressed: () => _openEditApproachDialog(index),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      color: _textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -950,6 +1144,7 @@ class _SetMenuScreenState extends State<SetMenuScreen> {
             children: [
               _buildCustomHeader(),
               SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+              _buildCompletionSummary(),
               Expanded(
                 child: _approaches.isEmpty
                     ? _buildEmptyState()

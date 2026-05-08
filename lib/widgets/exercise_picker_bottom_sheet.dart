@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/exercise_catalog_data.dart';
 import '../models/exercise_catalog_item.dart';
+import '../pages/body_model_page.dart';
 import '../services/custom_exercise_service.dart';
 import '../utils/input_limits.dart';
 
@@ -28,9 +29,9 @@ class _ExercisePickerBottomSheetState extends State<ExercisePickerBottomSheet> {
   bool _isLoading = true;
 
   List<ExerciseCatalogItem> get _allExercises => [
-    ...exerciseCatalog,
-    ..._customExercises,
-  ];
+        ...exerciseCatalog,
+        ..._customExercises,
+      ];
 
   List<String> get _groups {
     final groups = _allExercises.map((e) => e.muscleGroup).toSet().toList()
@@ -97,6 +98,20 @@ class _ExercisePickerBottomSheetState extends State<ExercisePickerBottomSheet> {
     }
   }
 
+  Future<void> _openBodyModelPage() async {
+    final selectedExercise = await Navigator.push<ExerciseCatalogItem>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const BodyModelPage(),
+      ),
+    );
+
+    if (selectedExercise == null) return;
+    if (!mounted) return;
+
+    Navigator.pop(context, selectedExercise);
+  }
+
   Future<void> _createCustomExercise() async {
     final nameController = TextEditingController(
       text: _searchController.text.trim(),
@@ -115,7 +130,7 @@ class _ExercisePickerBottomSheetState extends State<ExercisePickerBottomSheet> {
               padding: EdgeInsets.only(
                 left: 16,
                 right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 55,
               ),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -348,6 +363,33 @@ class _ExercisePickerBottomSheetState extends State<ExercisePickerBottomSheet> {
                             borderSide: const BorderSide(
                               color: _accentColor,
                               width: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _openBodyModelPage,
+                          icon: const Icon(Icons.accessibility_new_rounded),
+                          label: const Text(
+                            'Выбрать по группе мышц',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _textPrimary,
+                            backgroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: _borderSoft),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                         ),

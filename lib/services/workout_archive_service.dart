@@ -92,9 +92,12 @@ class WorkoutArchiveService {
     final normalizedTraining = _normalizeTraining(training);
     final exerciseCount = normalizedTraining.exercises.length;
     final approachCount = ArchivedTraining.countApproaches(
+      
       normalizedTraining.exercises,
     );
-
+if (approachCount == 0) {
+  throw StateError('Cannot archive training without completed approaches.');
+}
     final archiveData = {
       'training': normalizedTraining.toJson(),
       'exerciseCount': exerciseCount,
@@ -150,35 +153,47 @@ class WorkoutArchiveService {
     return _firestore.collection('users').doc(uid).collection('workoutArchive');
   }
 
-  FullTrainingData _normalizeTraining(FullTrainingData training) {
-    final basicInfo = Training(
-      name: training.basicInfo.name.trim(),
-      description: training.basicInfo.description.trim(),
-      hasTraining: true,
-    );
+FullTrainingData _normalizeTraining(FullTrainingData training) {
+  final basicInfo = Training(
+    name: training.basicInfo.name.trim(),
+    description: training.basicInfo.description.trim(),
+    hasTraining: true,
+  );
 
-    final exercises = training.exercises
-        .map(
-          (exercise) => Exercise(
-            name: exercise.name.trim(),
-            exerciseId: exercise.exerciseId,
-            trackingType: exercise.trackingType,
-            approaches: exercise.approaches
-                .map(
-                  (approach) => Approach(
-                    reps: approach.reps,
-                    weightKg: approach.weightKg,
-                    durationSeconds: approach.durationSeconds,
-                    isBodyweight: approach.isBodyweight,
-                    bodyweightKgSnapshot: approach.bodyweightKgSnapshot,
-                    additionalWeightKg: approach.additionalWeightKg,
-                  ),
-                )
-                .toList(),
-          ),
-        )
-        .toList();
+  final exercises = training.exercises
+      .map((exercise) {
+        final completedApproaches = exercise.approaches
+            .where((approach) => approach.isCompleted)
+            .map(
+              (approach) => Approach(
+                reps: approach.reps,
+                weightKg: approach.weightKg,
+                durationSeconds: approach.durationSeconds,
+                isBodyweight: approach.isBodyweight,
+                bodyweightKgSnapshot: approach.bodyweightKgSnapshot,
+                additionalWeightKg: approach.additionalWeightKg,
+                isCompleted: true,
+              ),
+            )
+            .toList();
 
-    return FullTrainingData(basicInfo: basicInfo, exercises: exercises);
-  }
+        if (completedApproaches.isEmpty) {
+          return null;
+        }
+
+        return Exercise(
+          name: exercise.name.trim(),
+          exerciseId: exercise.exerciseId,
+          trackingType: exercise.trackingType,
+          approaches: completedApproaches,
+        );
+      })
+      .whereType<Exercise>()
+      .toList();
+
+  return FullTrainingData(
+    basicInfo: basicInfo,
+    exercises: exercises,
+  );
+}
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../models/exercise_catalog_data.dart';
 import '../models/exercise_catalog_item.dart';
+import '../services/custom_exercise_service.dart';
 
 class MuscleGroup {
   final String id;
@@ -360,6 +363,10 @@ class BodyModelPage extends StatefulWidget {
 
 class _BodyModelPageState extends State<BodyModelPage> {
   late List<MuscleGroup> allGroups;
+
+  List<ExerciseCatalogItem> _allExercises = [];
+  bool _isLoadingExercises = true;
+
   bool showFront = true;
   String? selectedGroupId;
   final double canvasWidth = 300;
@@ -369,6 +376,54 @@ class _BodyModelPageState extends State<BodyModelPage> {
   void initState() {
     super.initState();
     allGroups = buildAllMuscleGroups();
+    _loadExercises();
+  }
+
+  Future<void> _loadExercises() async {
+    final customExercises = await CustomExerciseService.instance.loadExercises();
+
+    if (!mounted) return;
+
+    setState(() {
+      _allExercises = [
+        ...exerciseCatalog,
+        ...customExercises,
+      ];
+      _isLoadingExercises = false;
+    });
+  }
+
+  String _catalogMuscleGroupName(String bodyModelGroupName) {
+    switch (bodyModelGroupName) {
+      case 'Грудные мышцы':
+        return 'Грудь';
+      case 'Бицепсы':
+        return 'Бицепс';
+      case 'Плечи':
+        return 'Плечи';
+      case 'Пресс':
+        return 'Пресс';
+      case 'Ноги':
+        return 'Ноги';
+      case 'Спина':
+        return 'Спина';
+      case 'Трицепс':
+        return 'Трицепс';
+      default:
+        return bodyModelGroupName;
+    }
+  }
+
+  List<ExerciseCatalogItem> _exercisesForGroup(MuscleGroup group) {
+    final targetGroup = _catalogMuscleGroupName(group.name);
+
+    final exercises = _allExercises.where((exercise) {
+      return exercise.muscleGroup.trim().toLowerCase() ==
+          targetGroup.trim().toLowerCase();
+    }).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    return exercises;
   }
 
   List<MuscleGroup> get currentGroups =>
@@ -459,17 +514,8 @@ class _BodyModelPageState extends State<BodyModelPage> {
     });
   }
 
-  void _addExerciseToTraining(String exerciseName) {
-    // Ищем упражнение в каталоге или создаём кастомное
-    final catalogItem = ExerciseCatalogItem(
-      id: 'body_${exerciseName.toLowerCase().replaceAll(' ', '_')}',
-      name: exerciseName,
-      muscleGroup: getSelectedGroup()?.name ?? 'Другое',
-      equipment: 'Не указано',
-      trackingType: ExerciseTrackingType.weightReps,
-      isCustom: true,
-    );
-    Navigator.pop(context, catalogItem);
+  void _addExerciseToTraining(ExerciseCatalogItem exercise) {
+    Navigator.pop(context, exercise);
   }
 
   @override
@@ -559,7 +605,8 @@ class _BodyModelPageState extends State<BodyModelPage> {
                       height: 350,
                       child: WorkoutList(
                         group: selectedGroup,
-                        onDeleteExercise: _deleteExercise,
+                        exercises: _exercisesForGroup(selectedGroup),
+                        isLoading: _isLoadingExercises,
                         onAddExercise: _addExerciseToTraining,
                       ),
                     ),
@@ -587,15 +634,31 @@ class MuscleHighlightPainter extends CustomPainter {
   bool shouldRepaint(covariant MuscleHighlightPainter oldDelegate) => oldDelegate.path != path || oldDelegate.color != color;
 }
 
+
 class WorkoutList extends StatelessWidget {
   final MuscleGroup group;
-  final Function(int) onDeleteExercise;
-  final Function(String) onAddExercise;
+  final List<ExerciseCatalogItem> exercises;
+  final bool isLoading;
+  final ValueChanged<ExerciseCatalogItem> onAddExercise;
 
-  const WorkoutList({super.key, required this.group, required this.onDeleteExercise, required this.onAddExercise});
+  const WorkoutList({
+    super.key,
+    required this.group,
+    required this.exercises,
+    required this.isLoading,
+    required this.onAddExercise,
+  });
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFFF0A91C),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -603,50 +666,110 @@ class WorkoutList extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
             children: [
-              Container(width: 14, height: 14, decoration: BoxDecoration(color: const Color(0xFFF0A91C), borderRadius: BorderRadius.circular(7))),
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0A91C),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
               const SizedBox(width: 10),
-              Expanded(child: Text(group.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFF0A91C)))),
+              Expanded(
+                child: Text(
+                  group.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFF0A91C),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-        const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Рекомендуемые упражнения:', style: TextStyle(fontSize: 13, color: Colors.grey))),
-        const SizedBox(height: 4),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: group.exercises.length,
-            itemBuilder: (context, index) {
-              return Dismissible(
-                key: Key('${group.id}_$index'),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.delete, color: Colors.white, size: 30),
-                ),
-                onDismissed: (direction) => onDeleteExercise(index),
-                child: Card(
-                  elevation: 5,
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: const Color(0xFFF0A91C).withOpacity(0.2),child: Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFF0A91C))),
-                    ),
-                    title: Text(group.exercises[index], style: const TextStyle(fontSize: 15)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.add_circle_outline, color: Color(0xFFF0A91C)),
-                      onPressed: () {
-                        onAddExercise(group.exercises[index]);
-                      },
-                    ),
-                  ),
-                ),
-              );
-            },
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Нажми на упражнение, чтобы добавить его в тренировку',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+            ),
           ),
         ),
+        const SizedBox(height: 8),
+        if (exercises.isEmpty)
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Для этой группы мышц пока нет упражнений в каталоге.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.grey.shade600,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: exercises.length,
+              itemBuilder: (context, index) {
+                final exercise = exercises[index];
+
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.symmetric(vertical: 5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ListTile(
+                    onTap: () => onAddExercise(exercise),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    leading: CircleAvatar(
+                      backgroundColor:
+                          const Color(0xFFF0A91C).withOpacity(0.16),
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFF0A91C),
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      exercise.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      exercise.equipment,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
       ],
     );
   }

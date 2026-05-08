@@ -43,6 +43,8 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
   static const Color _textSecondary = Color(0xFF8E8E93);
   static const Color _softTileColor = Color(0xFFFCF7EF);
   static const Color _dangerColor = Color(0xFFEF4444);
+  static const Color _completedGreen = Color(0xFF2EAD4A);
+  static const Color _completedGreenSoft = Color(0xFFEAF7EE);
 
   @override
   void initState() {
@@ -147,6 +149,33 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     }
   }
 
+  int _completedApproachesCount(Exercise exercise) {
+    return exercise.approaches
+        .where((approach) => approach.isCompleted)
+        .length;
+  }
+
+  double _exerciseCompletionProgress(Exercise exercise) {
+    if (exercise.approaches.isEmpty) return 0;
+
+    return _completedApproachesCount(exercise) / exercise.approaches.length;
+  }
+
+  String _exerciseCompletionText(Exercise exercise) {
+    final total = exercise.approaches.length;
+    final completed = _completedApproachesCount(exercise);
+
+    if (total == 0) {
+      return 'Подходы ещё не добавлены';
+    }
+
+    if (completed == total) {
+      return 'Все подходы выполнены';
+    }
+
+    return '$completed из $total подходов выполнено';
+  }
+
   void _saveSelectedExercise(ExerciseCatalogItem item) {
     final alreadyExists = exercises.any(
       (exercise) =>
@@ -196,41 +225,64 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
     _saveCurrentTrainingState();
   }
 
-  FullTrainingData? _buildTrainingDataForArchive() {
-    final trainingName = _trainingNameController.text.trim();
-    if (trainingName.isEmpty) {
-      return null;
-    }
+FullTrainingData? _buildTrainingDataForArchive() {
+  final trainingName = _trainingNameController.text.trim();
 
+  if (trainingName.isEmpty) {
+    return null;
+  }
+
+  final completedExercises = exercises
+      .map((exercise) {
+        final completedApproaches = exercise.approaches
+            .where((approach) => approach.isCompleted)
+            .map(
+              (approach) => Approach(
+                reps: approach.reps,
+                weightKg: approach.weightKg,
+                durationSeconds: approach.durationSeconds,
+                isBodyweight: approach.isBodyweight,
+                bodyweightKgSnapshot: approach.bodyweightKgSnapshot,
+                additionalWeightKg: approach.additionalWeightKg,
+                isCompleted: true,
+              ),
+            )
+            .toList();
+
+        if (completedApproaches.isEmpty) {
+          return null;
+        }
+
+        return Exercise(
+          name: exercise.name,
+          exerciseId: exercise.exerciseId,
+          trackingType: exercise.trackingType,
+          approaches: completedApproaches,
+        );
+      })
+      .whereType<Exercise>()
+      .toList();
+
+  if (completedExercises.isEmpty) {
     return FullTrainingData(
       basicInfo: Training(
         name: trainingName,
         description: _trainingDescriptionController.text.trim(),
         hasTraining: true,
       ),
-      exercises: exercises
-          .map(
-            (exercise) => Exercise(
-              name: exercise.name,
-              exerciseId: exercise.exerciseId,
-              trackingType: exercise.trackingType,
-              approaches: exercise.approaches
-                  .map(
-                    (approach) => Approach(
-                      reps: approach.reps,
-                      weightKg: approach.weightKg,
-                      durationSeconds: approach.durationSeconds,
-                      isBodyweight: approach.isBodyweight,
-                      bodyweightKgSnapshot: approach.bodyweightKgSnapshot,
-                      additionalWeightKg: approach.additionalWeightKg,
-                    ),
-                  )
-                  .toList(),
-            ),
-          )
-          .toList(),
+      exercises: const [],
     );
   }
+
+  return FullTrainingData(
+    basicInfo: Training(
+      name: trainingName,
+      description: _trainingDescriptionController.text.trim(),
+      hasTraining: true,
+    ),
+    exercises: completedExercises,
+  );
+}
 
   Future<void> _finishTraining() async {
     if (_isFinishing) return;
@@ -258,7 +310,17 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
       );
       return;
     }
-
+if (training.exercises.isEmpty) {
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Отметьте хотя бы один подход как выполненный, чтобы сохранить тренировку.',
+      ),
+    ),
+  );
+  return;
+}
     setState(() {
       _isFinishing = true;
     });
@@ -569,7 +631,10 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
             Column(
               children: List.generate(exercises.length, (index) {
                 final exercise = exercises[index];
-                final approachCount = exercise.approaches.length;
+                final progress = _exerciseCompletionProgress(exercise);
+                final percent = (progress * 100).round();
+                final isCompleted =
+                    exercise.approaches.isNotEmpty && percent == 100;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -591,12 +656,17 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                     ),
                     child: GestureDetector(
                       onTap: () => _openExercise(exercise),
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isCompleted ? _completedGreenSoft : Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: _borderSoft),
+                          border: Border.all(
+                            color: isCompleted
+                                ? _completedGreen.withOpacity(0.45)
+                                : _borderSoft,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.035),
@@ -611,34 +681,78 @@ class _CurrentWorkoutScreenState extends State<CurrentWorkoutScreen> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: _softTileColor,
+                                color: isCompleted
+                                    ? Colors.white.withOpacity(0.75)
+                                    : _softTileColor,
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: const Icon(
-                                Icons.fitness_center_rounded,
-                                color: _textPrimary,
+                              child: Icon(
+                                isCompleted
+                                    ? Icons.check_rounded
+                                    : Icons.fitness_center_rounded,
+                                color: isCompleted
+                                    ? _completedGreen
+                                    : _textPrimary,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                exercise.name,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  color: _textPrimary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              approachCount == 0
-                                  ? '0'
-                                  : '$approachCount ${_getApproachWord(approachCount)}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: _textSecondary,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          exercise.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w800,
+                                            color: _textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        isCompleted ? 'Готово' : '$percent%',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: isCompleted
+                                              ? _completedGreen
+                                              : _textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _exerciseCompletionText(exercise),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      minHeight: 6,
+                                      backgroundColor: _softTileColor,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        isCompleted
+                                            ? _completedGreen
+                                            : elevatedButtonBackgroundColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

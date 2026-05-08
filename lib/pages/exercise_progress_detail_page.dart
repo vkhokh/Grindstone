@@ -1,8 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:dp/colors.dart';
 import 'package:dp/models/exercise_catalog_item.dart';
 import 'package:dp/models/workout_progress.dart';
 import 'package:dp/services/workout_progress_service.dart';
-import 'package:dp/widgets/progress_line_chart.dart';
 import 'package:flutter/material.dart';
 
 class ExerciseProgressDetailPage extends StatefulWidget {
@@ -225,7 +226,7 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
               _buildInfoChip(
                 icon: Icons.history_rounded,
                 text: '${summary.sessionCount} сессий',
-              ),
+              ),  
             ],
           ),
         ],
@@ -267,7 +268,27 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
       ),
     );
   }
+String _chartMetricTitle(_DetailMetric metric) {
+  switch (metric) {
+    case _DetailMetric.weight:
+      return 'Последний вес';
 
+    case _DetailMetric.reps:
+      return 'Последние повторения';
+
+    case _DetailMetric.additionalWeight:
+      return 'Последний доп. вес';
+
+    case _DetailMetric.totalDuration:
+      return 'Последнее время';
+
+    case _DetailMetric.performance:
+      return 'Последний результат';
+
+    case _DetailMetric.volume:
+      return 'Последний объём';
+  }
+}
   Widget _buildChartCard(
     ExerciseProgressSummary summary,
     List<ExerciseProgressPoint> points,
@@ -277,6 +298,8 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
           (point) => ProgressChartPoint(
             label: _shortDate(point.completedAt),
             value: _metricValue(point, _selectedMetric),
+            tooltipTitle: _longDate(point.completedAt),
+            tooltipLines: _chartTooltipLines(summary, point),
           ),
         )
         .toList();
@@ -296,7 +319,7 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _selectedMetric.label,
+  _chartMetricTitle(_selectedMetric),
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -307,7 +330,11 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
           Text(
             latestValue == null
                 ? 'Нет данных'
-                : _formatMetricNumber(summary.trackingType, _selectedMetric, latestValue),
+                : _formatMetricNumber(
+                    summary.trackingType,
+                    _selectedMetric,
+                    latestValue,
+                  ),
             style: const TextStyle(
               fontSize: 30,
               fontWeight: FontWeight.w800,
@@ -318,14 +345,22 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
           Text(
             points.isEmpty
                 ? 'График появится после сохранённых тренировок.'
-                : 'Каждая точка показывает результат одной завершённой тренировки.',
+                : _chartDescription(_selectedMetric),
             style: const TextStyle(
               fontSize: 14,
               color: _textSecondary,
+              height: 1.35,
             ),
           ),
           const SizedBox(height: 18),
-          ProgressLineChart(points: chartPoints),
+          ProgressLineChart(
+            points: chartPoints,
+            valueFormatter: (value) => _formatMetricNumber(
+              summary.trackingType,
+              _selectedMetric,
+              value,
+            ),
+          ),
         ],
       ),
     );
@@ -545,11 +580,11 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
   String _heroSubtitle(ExerciseProgressSummary summary) {
     switch (summary.trackingType) {
       case ExerciseTrackingType.weightReps:
-        return 'Прогресс считается по оценочному силовому результату, рабочему весу, повторениям и объёму.';
+        return 'Здесь видно, как менялись рабочий вес и повторения в этом упражнении.';
       case ExerciseTrackingType.bodyweightReps:
-        return 'Для упражнений с собственным весом отслеживаются общий вес нагрузки, дополнительный вес и повторения.';
+        return 'Здесь видно, как менялись дополнительный вес и повторения.';
       case ExerciseTrackingType.duration:
-        return 'Для упражнений на время отображается лучший и суммарный результат по каждой тренировке.';
+        return 'Здесь видно, как менялось время выполнения упражнения.';
     }
   }
 
@@ -567,11 +602,11 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
   String _personalBestLabel(ExerciseProgressSummary summary) {
     switch (summary.trackingType) {
       case ExerciseTrackingType.weightReps:
-        return 'Пик: ${_formatDouble(summary.personalBestValue)} кг 1ПМ';
+        return 'Лучший результат: ${_formatWeight(summary.personalBestValue)}';
       case ExerciseTrackingType.bodyweightReps:
-        return 'Пик: ${_formatDouble(summary.personalBestValue)} кг нагрузки';
+        return 'Лучший результат: ${_formatWeight(summary.personalBestValue)}';
       case ExerciseTrackingType.duration:
-        return 'Пик: ${_formatDuration(summary.bestDurationSeconds ?? 0)}';
+        return 'Лучшее время: ${_formatDuration(summary.bestDurationSeconds ?? 0)}';
     }
   }
 
@@ -583,9 +618,8 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
     final sign = summary.improvementValue > 0 ? '+' : '';
     switch (summary.trackingType) {
       case ExerciseTrackingType.weightReps:
-        return '$sign${_formatDouble(summary.improvementValue)} кг';
       case ExerciseTrackingType.bodyweightReps:
-        return '$sign${_formatDouble(summary.improvementValue)} кг';
+        return '$sign${_formatWeight(summary.improvementValue)}';
       case ExerciseTrackingType.duration:
         return '$sign${_formatDuration(summary.improvementValue.round())}';
     }
@@ -595,21 +629,16 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
     switch (trackingType) {
       case ExerciseTrackingType.weightReps:
         return const [
-          _DetailMetric.performance,
           _DetailMetric.weight,
           _DetailMetric.reps,
-          _DetailMetric.volume,
         ];
       case ExerciseTrackingType.bodyweightReps:
         return const [
-          _DetailMetric.performance,
           _DetailMetric.additionalWeight,
           _DetailMetric.reps,
-          _DetailMetric.volume,
         ];
       case ExerciseTrackingType.duration:
         return const [
-          _DetailMetric.performance,
           _DetailMetric.totalDuration,
         ];
     }
@@ -632,6 +661,23 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
     }
   }
 
+  String _chartDescription(_DetailMetric metric) {
+    switch (metric) {
+      case _DetailMetric.weight:
+        return 'Каждая точка показывает лучший рабочий вес в одной тренировке.';
+      case _DetailMetric.reps:
+        return 'Каждая точка показывает максимум повторений в одном подходе.';
+      case _DetailMetric.additionalWeight:
+        return 'Каждая точка показывает лучший дополнительный вес в одной тренировке.';
+      case _DetailMetric.totalDuration:
+        return 'Каждая точка показывает лучшее время в одной тренировке.';
+      case _DetailMetric.performance:
+        return 'Каждая точка показывает общий показатель результата.';
+      case _DetailMetric.volume:
+        return 'Каждая точка показывает суммарный объём за тренировку.';
+    }
+  }
+
   String _formatMetricNumber(
     ExerciseTrackingType trackingType,
     _DetailMetric metric,
@@ -642,17 +688,44 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
         if (trackingType == ExerciseTrackingType.duration) {
           return _formatDuration(value.round());
         }
-        return '${_formatDouble(value)} кг';
+        return _formatWeight(value);
       case _DetailMetric.weight:
-        return '${_formatDouble(value)} кг';
+        return _formatWeight(value);
       case _DetailMetric.reps:
         return '${value.round()} повт.';
       case _DetailMetric.volume:
-        return '${_formatDouble(value)} кг';
+        return _formatWeight(value);
       case _DetailMetric.additionalWeight:
-        return '${_formatDouble(value)} кг';
+        return _formatWeight(value);
       case _DetailMetric.totalDuration:
         return _formatDuration(value.round());
+    }
+  }
+
+  List<String> _chartTooltipLines(
+    ExerciseProgressSummary summary,
+    ExerciseProgressPoint point,
+  ) {
+    switch (summary.trackingType) {
+      case ExerciseTrackingType.weightReps:
+        return [
+          'Вес: ${_formatWeight(point.bestWeightKg ?? 0)}',
+          'Повторы: ${point.bestReps ?? 0}',
+          'Подходы: ${point.approachCount}',
+        ];
+
+      case ExerciseTrackingType.bodyweightReps:
+        return [
+          'Доп. вес: ${_formatWeight(point.bestAdditionalWeightKg ?? 0)}',
+          'Повторы: ${point.bestReps ?? 0}',
+          'Подходы: ${point.approachCount}',
+        ];
+
+      case ExerciseTrackingType.duration:
+        return [
+          'Время: ${_formatDuration(point.bestDurationSeconds ?? 0)}',
+          'Подходы: ${point.approachCount}',
+        ];
     }
   }
 
@@ -665,22 +738,18 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
         return [
           _SessionMetricChip(
             icon: Icons.fitness_center_rounded,
-            text: '${_formatDouble(point.bestWeightKg ?? 0)} кг',
+            text: _formatWeight(point.bestWeightKg ?? 0),
           ),
           _SessionMetricChip(
             icon: Icons.repeat_rounded,
             text: '${point.bestReps ?? 0} повт.',
-          ),
-          _SessionMetricChip(
-            icon: Icons.local_fire_department_rounded,
-            text: '${_formatDouble(point.totalVolumeKg)} кг объёма',
           ),
         ];
       case ExerciseTrackingType.bodyweightReps:
         return [
           _SessionMetricChip(
             icon: Icons.add_circle_outline_rounded,
-            text: '${_formatDouble(point.bestAdditionalWeightKg ?? 0)} кг доп.',
+            text: '${_formatWeight(point.bestAdditionalWeightKg ?? 0)} доп.',
           ),
           _SessionMetricChip(
             icon: Icons.repeat_rounded,
@@ -688,7 +757,7 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
           ),
           _SessionMetricChip(
             icon: Icons.monitor_weight_outlined,
-            text: '${_formatDouble(point.bestTotalLoadKg ?? 0)} кг нагрузка',
+            text: '${_formatWeight(point.bestTotalLoadKg ?? 0)} нагрузка',
           ),
         ];
       case ExerciseTrackingType.duration:
@@ -696,10 +765,6 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
           _SessionMetricChip(
             icon: Icons.timer_outlined,
             text: _formatDuration(point.bestDurationSeconds ?? 0),
-          ),
-          _SessionMetricChip(
-            icon: Icons.timelapse_rounded,
-            text: '${_formatDuration(point.totalDurationSeconds)} суммарно',
           ),
           _SessionMetricChip(
             icon: Icons.layers_outlined,
@@ -726,11 +791,12 @@ class _ExerciseProgressDetailPageState extends State<ExerciseProgressDetailPage>
     return '$day.$month.$year';
   }
 
-  String _formatDouble(double value) {
+  String _formatWeight(double value) {
     if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
+      return '${value.toInt()} кг';
     }
-    return value.toStringAsFixed(1);
+
+    return '${value.toStringAsFixed(1).replaceAll('.', ',')} кг';
   }
 
   String _formatDuration(int seconds) {
@@ -748,7 +814,7 @@ enum _DetailMetric {
   reps('Повторы'),
   volume('Объём'),
   additionalWeight('Доп. вес'),
-  totalDuration('Общее время');
+  totalDuration('Время');
 
   const _DetailMetric(this.label);
 
@@ -763,4 +829,488 @@ class _SessionMetricChip {
 
   final IconData icon;
   final String text;
+}
+
+class ProgressChartPoint {
+  const ProgressChartPoint({
+    required this.label,
+    required this.value,
+    required this.tooltipTitle,
+    required this.tooltipLines,
+  });
+
+  final String label;
+  final double value;
+  final String tooltipTitle;
+  final List<String> tooltipLines;
+}
+
+class ProgressLineChart extends StatefulWidget {
+  const ProgressLineChart({
+    super.key,
+    required this.points,
+    this.lineColor = const Color(0xFFF0A91C),
+    this.emptyLabel = 'Недостаточно данных для графика',
+    this.valueFormatter,
+  });
+
+  final List<ProgressChartPoint> points;
+  final Color lineColor;
+  final String emptyLabel;
+  final String Function(double value)? valueFormatter;
+
+  @override
+  State<ProgressLineChart> createState() => _ProgressLineChartState();
+}
+
+class _ProgressLineChartState extends State<ProgressLineChart> {
+  int? _selectedIndex;
+
+  static const EdgeInsets _chartPadding = EdgeInsets.fromLTRB(8, 16, 8, 20);
+
+  @override
+  void didUpdateWidget(covariant ProgressLineChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.points != widget.points) {
+      _selectedIndex = null;
+      return;
+    }
+
+    if (_selectedIndex != null && _selectedIndex! >= widget.points.length) {
+      _selectedIndex = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.points.isEmpty) {
+      return Container(
+        height: 220,
+        alignment: Alignment.center,
+        child: Text(
+          widget.emptyLabel,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF8E8E93),
+          ),
+        ),
+      );
+    }
+
+    final values = widget.points.map((point) => point.value).toList();
+    var minValue = values.reduce(math.min);
+    var maxValue = values.reduce(math.max);
+
+    if ((maxValue - minValue).abs() < 0.0001) {
+      minValue -= 1;
+      maxValue += 1;
+    } else {
+      final padding = (maxValue - minValue) * 0.15;
+      minValue -= padding;
+      maxValue += padding;
+    }
+
+    final formatValue = widget.valueFormatter ?? _defaultValueFormatter;
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 190,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 58,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildAxisLabel(formatValue(maxValue)),
+                    _buildAxisLabel(formatValue((maxValue + minValue) / 2)),
+                    _buildAxisLabel(formatValue(minValue)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final chartSize = Size(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+
+                    final chartOffsets = _calculateChartOffsets(
+                      size: chartSize,
+                      minValue: minValue,
+                      maxValue: maxValue,
+                    );
+
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (details) {
+                        final index = _nearestPointIndex(
+                          details.localPosition,
+                          chartOffsets,
+                        );
+
+                        setState(() {
+                          _selectedIndex = index;
+                        });
+                      },
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CustomPaint(
+                            painter: _ProgressLineChartPainter(
+                              points: widget.points,
+                              lineColor: widget.lineColor,
+                              minValue: minValue,
+                              maxValue: maxValue,
+                              selectedIndex: _selectedIndex,
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                          if (_selectedIndex != null &&
+                              _selectedIndex! < widget.points.length &&
+                              _selectedIndex! < chartOffsets.length)
+                            _buildTooltip(
+                              point: widget.points[_selectedIndex!],
+                              offset: chartOffsets[_selectedIndex!],
+                              chartSize: chartSize,
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            const SizedBox(width: 66),
+            Expanded(
+              child: Text(
+                widget.points.first.label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF8E8E93),
+                ),
+              ),
+            ),
+            if (widget.points.length > 2)
+              Text(
+                widget.points[widget.points.length ~/ 2].label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF8E8E93),
+                ),
+              ),
+            Expanded(
+              child: Text(
+                widget.points.last.label,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF8E8E93),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAxisLabel(String text) {
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF8E8E93),
+      ),
+    );
+  }
+
+  Widget _buildTooltip({
+    required ProgressChartPoint point,
+    required Offset offset,
+    required Size chartSize,
+  }) {
+    const tooltipWidth = 154.0;
+    const tooltipHeightEstimate = 94.0;
+
+    final left = (offset.dx - tooltipWidth / 2)
+        .clamp(0.0, math.max(0.0, chartSize.width - tooltipWidth))
+        .toDouble();
+
+    final top = (offset.dy - 86)
+        .clamp(0.0, math.max(0.0, chartSize.height - 72))
+        .toDouble();
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: IgnorePointer(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: tooltipWidth,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                point.tooltipTitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              ...point.tooltipLines.map(
+                (line) => Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    line,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFEDEDED),
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Offset> _calculateChartOffsets({
+    required Size size,
+    required double minValue,
+    required double maxValue,
+  }) {
+    final chartWidth = size.width - _chartPadding.left - _chartPadding.right;
+    final chartHeight = size.height - _chartPadding.top - _chartPadding.bottom;
+
+    if (chartWidth <= 0 || chartHeight <= 0) {
+      return const [];
+    }
+
+    return List.generate(widget.points.length, (index) {
+      final dx = widget.points.length == 1
+          ? _chartPadding.left + chartWidth / 2
+          : _chartPadding.left +
+              (chartWidth / (widget.points.length - 1)) * index;
+
+      final normalized =
+          (widget.points[index].value - minValue) / (maxValue - minValue);
+
+      final dy = _chartPadding.top +
+          chartHeight -
+          (normalized * chartHeight).clamp(0.0, chartHeight).toDouble();
+
+      return Offset(dx, dy);
+    });
+  }
+
+  int? _nearestPointIndex(
+    Offset tapPosition,
+    List<Offset> chartOffsets,
+  ) {
+    if (chartOffsets.isEmpty) return null;
+
+    var nearestIndex = 0;
+    var nearestDistance = double.infinity;
+
+    for (var index = 0; index < chartOffsets.length; index++) {
+      final distance = (tapPosition - chartOffsets[index]).distance;
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    }
+
+    if (nearestDistance > 36) {
+      return null;
+    }
+
+    return nearestIndex;
+  }
+
+  String _defaultValueFormatter(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+
+    return value.toStringAsFixed(1);
+  }
+}
+
+class _ProgressLineChartPainter extends CustomPainter {
+  _ProgressLineChartPainter({
+    required this.points,
+    required this.lineColor,
+    required this.minValue,
+    required this.maxValue,
+    required this.selectedIndex,
+  });
+
+  final List<ProgressChartPoint> points;
+  final Color lineColor;
+  final double minValue;
+  final double maxValue;
+  final int? selectedIndex;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const chartPadding = EdgeInsets.fromLTRB(8, 16, 8, 20);
+
+    final chartWidth = size.width - chartPadding.left - chartPadding.right;
+    final chartHeight = size.height - chartPadding.top - chartPadding.bottom;
+
+    if (chartWidth <= 0 || chartHeight <= 0) {
+      return;
+    }
+
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE8E2D6)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    for (var i = 0; i < 3; i++) {
+      final dy = chartPadding.top + (chartHeight / 2) * i;
+
+      canvas.drawLine(
+        Offset(chartPadding.left, dy),
+        Offset(size.width - chartPadding.right, dy),
+        gridPaint,
+      );
+    }
+
+    final chartPoints = <Offset>[];
+
+    for (var index = 0; index < points.length; index++) {
+      final dx = points.length == 1
+          ? chartPadding.left + chartWidth / 2
+          : chartPadding.left + (chartWidth / (points.length - 1)) * index;
+
+      final normalized = (points[index].value - minValue) / (maxValue - minValue);
+
+      final dy = chartPadding.top +
+          chartHeight -
+          (normalized * chartHeight).clamp(0.0, chartHeight).toDouble();
+
+      chartPoints.add(Offset(dx, dy));
+    }
+
+    final areaPath = Path()
+      ..moveTo(chartPoints.first.dx, size.height - chartPadding.bottom);
+
+    for (final point in chartPoints) {
+      areaPath.lineTo(point.dx, point.dy);
+    }
+
+    areaPath.lineTo(chartPoints.last.dx, size.height - chartPadding.bottom);
+    areaPath.close();
+
+    canvas.drawPath(
+      areaPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            lineColor.withOpacity(0.24),
+            lineColor.withOpacity(0.03),
+          ],
+        ).createShader(
+          Rect.fromLTWH(
+            chartPadding.left,
+            chartPadding.top,
+            chartWidth,
+            chartHeight,
+          ),
+        ),
+    );
+
+    final linePath = Path()
+      ..moveTo(chartPoints.first.dx, chartPoints.first.dy);
+
+    for (final point in chartPoints.skip(1)) {
+      linePath.lineTo(point.dx, point.dy);
+    }
+
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = lineColor
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    final pointFillPaint = Paint()..color = Colors.white;
+
+    final pointStrokePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    for (var index = 0; index < chartPoints.length; index++) {
+      final point = chartPoints[index];
+      final isSelected = index == selectedIndex;
+      final radius = isSelected ? 6.5 : 4.5;
+
+      if (isSelected) {
+        canvas.drawCircle(
+          point,
+          12,
+          Paint()..color = lineColor.withOpacity(0.14),
+        );
+      }
+
+      canvas.drawCircle(point, radius, pointFillPaint);
+      canvas.drawCircle(point, radius, pointStrokePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProgressLineChartPainter oldDelegate) {
+    return oldDelegate.points != points ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.minValue != minValue ||
+        oldDelegate.maxValue != maxValue ||
+        oldDelegate.selectedIndex != selectedIndex;
+  }
 }

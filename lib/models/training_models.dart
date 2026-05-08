@@ -10,6 +10,8 @@ class Approach {
   final double? bodyweightKgSnapshot;
   final double? additionalWeightKg;
 
+  final bool isCompleted;
+
   const Approach({
     this.reps,
     this.weightKg,
@@ -17,7 +19,28 @@ class Approach {
     this.isBodyweight = false,
     this.bodyweightKgSnapshot,
     this.additionalWeightKg,
+    this.isCompleted = false,
   });
+
+  Approach copyWith({
+    int? reps,
+    double? weightKg,
+    int? durationSeconds,
+    bool? isBodyweight,
+    double? bodyweightKgSnapshot,
+    double? additionalWeightKg,
+    bool? isCompleted,
+  }) {
+    return Approach(
+      reps: reps ?? this.reps,
+      weightKg: weightKg ?? this.weightKg,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      isBodyweight: isBodyweight ?? this.isBodyweight,
+      bodyweightKgSnapshot: bodyweightKgSnapshot ?? this.bodyweightKgSnapshot,
+      additionalWeightKg: additionalWeightKg ?? this.additionalWeightKg,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -27,6 +50,7 @@ class Approach {
       'isBodyweight': isBodyweight,
       'bodyweightKgSnapshot': bodyweightKgSnapshot,
       'additionalWeightKg': additionalWeightKg,
+      'isCompleted': isCompleted,
     };
   }
 
@@ -38,6 +62,7 @@ class Approach {
       isBodyweight: json['isBodyweight'] as bool? ?? false,
       bodyweightKgSnapshot: (json['bodyweightKgSnapshot'] as num?)?.toDouble(),
       additionalWeightKg: (json['additionalWeightKg'] as num?)?.toDouble(),
+      isCompleted: json['isCompleted'] as bool? ?? false,
     );
   }
 }
